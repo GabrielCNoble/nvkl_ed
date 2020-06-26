@@ -1,0 +1,846 @@
+# depslib dependency file v1.0
+1593159027 source:c:\users\gabri\documents\compiler\neighbor_editor\ed.c
+	"ed.h"
+	"r_ed.h"
+	"bsh.h"
+	"neighbor/in.h"
+	"neighbor/g.h"
+
+1593152455 c:\users\gabri\documents\compiler\neighbor_editor\ed.h
+
+1593152525 source:c:\users\gabri\documents\compiler\neighbor_editor\main.c
+	"main.h"
+
+1593152498 c:\users\gabri\documents\compiler\neighbor_editor\main.h
+	"neighbor/g.h"
+	"ed.h"
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\g.h
+	<stdint.h>
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ent.c
+	"ent.h"
+	"lib/dstuff/ds_stack_list.h"
+	"lib/dstuff/ds_dbvh.h"
+	"lib/dstuff/ds_vector.h"
+	"lib/dstuff/ds_matrix.h"
+	<stdio.h>
+	<string.h>
+	<stdlib.h>
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ent.h
+	<stdint.h>
+	"lib/dstuff/ds_vector.h"
+	"lib/dstuff/ds_matrix.h"
+	"mdl.h"
+
+1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_vector.h
+	<math.h>
+
+1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_matrix.h
+	"ds_vector.h"
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\mdl.h
+	"r_common.h"
+	<stdint.h>
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_common.h
+	<stdint.h>
+	"lib/SDL/include/SDL2/SDL.h"
+	"lib/dstuff/ds_stack_list.h"
+	"lib/dstuff/ds_list.h"
+	"lib/dstuff/ds_ringbuffer.h"
+	"lib/dstuff/ds_vector.h"
+	"lib/dstuff/ds_matrix.h"
+	"lib/vulkan/Include/vulkan/vulkan.h"
+	"lib/vulkan/Include/vulkan/vulkan_core.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl.h
+	"SDL_main.h"
+	"SDL_stdinc.h"
+	"SDL_assert.h"
+	"SDL_atomic.h"
+	"SDL_audio.h"
+	"SDL_clipboard.h"
+	"SDL_cpuinfo.h"
+	"SDL_endian.h"
+	"SDL_error.h"
+	"SDL_events.h"
+	"SDL_filesystem.h"
+	"SDL_gamecontroller.h"
+	"SDL_haptic.h"
+	"SDL_hints.h"
+	"SDL_joystick.h"
+	"SDL_loadso.h"
+	"SDL_log.h"
+	"SDL_messagebox.h"
+	"SDL_mutex.h"
+	"SDL_power.h"
+	"SDL_render.h"
+	"SDL_rwops.h"
+	"SDL_sensor.h"
+	"SDL_shape.h"
+	"SDL_system.h"
+	"SDL_thread.h"
+	"SDL_timer.h"
+	"SDL_version.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_main.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_stdinc.h
+	"SDL_config.h"
+	<sys/types.h>
+	<stdio.h>
+	<stdlib.h>
+	<stddef.h>
+	<stdarg.h>
+	<stdlib.h>
+	<malloc.h>
+	<stddef.h>
+	<stdarg.h>
+	<memory.h>
+	<string.h>
+	<strings.h>
+	<wchar.h>
+	<inttypes.h>
+	<stdint.h>
+	<ctype.h>
+	<math.h>
+	<float.h>
+	<alloca.h>
+	<malloc.h>
+	<malloc.h>
+	<malloc.h>
+	<stdlib.h>
+	<sal.h>
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_config.h
+	"SDL_platform.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_platform.h
+	"AvailabilityMacros.h"
+	"TargetConditionals.h"
+	<winapifamily.h>
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\begin_code.h
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\close_code.h
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_assert.h
+	"SDL_config.h"
+	"begin_code.h"
+	<signal.h>
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_atomic.h
+	"SDL_stdinc.h"
+	"SDL_platform.h"
+	"begin_code.h"
+	<sys/cpuinline.h>
+	<mbarrier.h>
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_audio.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_endian.h"
+	"SDL_mutex.h"
+	"SDL_thread.h"
+	"SDL_rwops.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_error.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_endian.h
+	"SDL_stdinc.h"
+	<endian.h>
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_mutex.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_thread.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_atomic.h"
+	"SDL_mutex.h"
+	"begin_code.h"
+	<process.h>
+	<process.h>
+	<stdlib.h>
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_rwops.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_clipboard.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_cpuinfo.h
+	"SDL_stdinc.h"
+	<intrin.h>
+	<intrin.h>
+	<altivec.h>
+	<arm_neon.h>
+	<armintr.h>
+	<arm_neon.h>
+	<armintr.h>
+	<arm_neon.h>
+	<mm3dnow.h>
+	<immintrin.h>
+	<mmintrin.h>
+	<xmmintrin.h>
+	<emmintrin.h>
+	<pmmintrin.h>
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_events.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_video.h"
+	"SDL_keyboard.h"
+	"SDL_mouse.h"
+	"SDL_joystick.h"
+	"SDL_gamecontroller.h"
+	"SDL_quit.h"
+	"SDL_gesture.h"
+	"SDL_touch.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_video.h
+	"SDL_stdinc.h"
+	"SDL_pixels.h"
+	"SDL_rect.h"
+	"SDL_surface.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_pixels.h
+	"SDL_stdinc.h"
+	"SDL_endian.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_rect.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_pixels.h"
+	"SDL_rwops.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_surface.h
+	"SDL_stdinc.h"
+	"SDL_pixels.h"
+	"SDL_rect.h"
+	"SDL_blendmode.h"
+	"SDL_rwops.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_blendmode.h
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_keyboard.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_keycode.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_keycode.h
+	"SDL_stdinc.h"
+	"SDL_scancode.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_scancode.h
+	"SDL_stdinc.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_mouse.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_joystick.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_gamecontroller.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_rwops.h"
+	"SDL_joystick.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_quit.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_gesture.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_video.h"
+	"SDL_touch.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_touch.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_filesystem.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_haptic.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"SDL_joystick.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_hints.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_loadso.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_log.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_messagebox.h
+	"SDL_stdinc.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_power.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_render.h
+	"SDL_stdinc.h"
+	"SDL_rect.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_sensor.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_shape.h
+	"SDL_stdinc.h"
+	"SDL_pixels.h"
+	"SDL_rect.h"
+	"SDL_surface.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_system.h
+	"SDL_stdinc.h"
+	"SDL_keyboard.h"
+	"SDL_render.h"
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_timer.h
+	"SDL_stdinc.h"
+	"SDL_error.h"
+	"begin_code.h"
+	"close_code.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_version.h
+	"SDL_stdinc.h"
+	"begin_code.h"
+	"close_code.h"
+
+1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_stack_list.h
+	<stdint.h>
+	<string.h>
+	<stdlib.h>
+	<stdio.h>
+	"ds_mem.h"
+
+1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_mem.h
+	<stdint.h>
+	<stdlib.h>
+	<stdio.h>
+	<string.h>
+
+1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_list.h
+	<stdint.h>
+	<string.h>
+	<stdlib.h>
+	<stdio.h>
+	"ds_mem.h"
+
+1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_ringbuffer.h
+	<stdint.h>
+	<string.h>
+	<stdlib.h>
+	<stdio.h>
+	"ds_mem.h"
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan.h
+	"vk_platform.h"
+	"vulkan_core.h"
+	"vulkan_android.h"
+	<zircon/types.h>
+	"vulkan_fuchsia.h"
+	"vulkan_ios.h"
+	"vulkan_macos.h"
+	"vulkan_metal.h"
+	"vulkan_vi.h"
+	<wayland-client.h>
+	"vulkan_wayland.h"
+	<windows.h>
+	"vulkan_win32.h"
+	<xcb/xcb.h>
+	"vulkan_xcb.h"
+	<X11/Xlib.h>
+	"vulkan_xlib.h"
+	<X11/Xlib.h>
+	<X11/extensions/Xrandr.h>
+	"vulkan_xlib_xrandr.h"
+	<ggp_c/vulkan_types.h>
+	"vulkan_ggp.h"
+	"vulkan_beta.h"
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vk_platform.h
+	<stddef.h>
+	<stdint.h>
+
+1586332738 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_core.h
+	"vk_platform.h"
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_android.h
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_fuchsia.h
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_ios.h
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_macos.h
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_metal.h
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_vi.h
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_wayland.h
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_win32.h
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_xcb.h
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_xlib.h
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_xlib_xrandr.h
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_ggp.h
+
+1586332736 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\vulkan\include\vulkan\vulkan_beta.h
+
+1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_dbvh.h
+	<stdint.h>
+	"ds_vector.h"
+	"ds_list.h"
+	"ds_stack_list.h"
+	<stdio.h>
+	<float.h>
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\g.c
+	"lib/SDL/include/SDL2/SDL.h"
+	"g.h"
+	"in.h"
+	"r_nvkl.h"
+	"r_draw.h"
+	"phy.h"
+	"ui.h"
+	"scr.h"
+	<stdio.h>
+	<stdint.h>
+
+1593153763 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\in.h
+	<stdint.h>
+	"lib/SDL/include/SDL2/SDL_scancode.h"
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.h
+	"r_common.h"
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.h
+	"r_nvkl.h"
+	"lib/dstuff/ds_matrix.h"
+	"lib/dstuff/ds_list.h"
+	"lib/dstuff/ds_stack_list.h"
+	"lib/dstuff/ds_ringbuffer.h"
+	"spr.h"
+	"mdl.h"
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\spr.h
+	"r_common.h"
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\phy.h
+	"lib/dstuff/ds_vector.h"
+	<stdint.h>
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ui.h
+	"lib/imgui/cimgui.h"
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\cimgui.h
+	<stdio.h>
+	<stdint.h>
+	<stdarg.h>
+	<stdbool.h>
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\scr.h
+	<stdint.h>
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\impl.c
+	"lib/dstuff/ds_vector.h"
+	"lib/dstuff/ds_matrix.h"
+	"lib/dstuff/ds_mem.h"
+	"lib/dstuff/ds_list.h"
+	"lib/dstuff/ds_stack_list.h"
+	"lib/dstuff/ds_ringbuffer.h"
+	"lib/dstuff/ds_dbvh.h"
+	"lib/dstuff/ds_path.h"
+	"lib/dstuff/ds_file.h"
+	"lib/dstuff/ds_sprpk.h"
+	"lib/dstuff/ds_obj.h"
+	"lib/stb/stb_image.h"
+	"lib/stb/stb_image_write.h"
+
+1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_path.h
+	<stdint.h>
+	<dirent.h>
+	<string.h>
+	<limits.h>
+	<stdlib.h>
+
+1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_file.h
+	<stdio.h>
+	<stdint.h>
+	<stdlib.h>
+	"ds_mem.h"
+
+1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_sprpk.h
+	<stdint.h>
+	<stdio.h>
+	<stdlib.h>
+	<string.h>
+	<float.h>
+	<math.h>
+	"../stb/stb_image.h"
+	"../stb/stb_image_write.h"
+	"ds_path.h"
+	"ds_file.h"
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\stb\stb_image.h
+	"stb_image.h"
+	<stdio.h>
+	<stdlib.h>
+	<stdarg.h>
+	<stddef.h>
+	<stdlib.h>
+	<string.h>
+	<limits.h>
+	<math.h>
+	<stdio.h>
+	<assert.h>
+	<stdint.h>
+	<emmintrin.h>
+	<intrin.h>
+	<arm_neon.h>
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\stb\stb_image_write.h
+	<stdlib.h>
+	<stdio.h>
+	<stdarg.h>
+	<stdlib.h>
+	<string.h>
+	<math.h>
+	<assert.h>
+
+1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_obj.h
+	"ds_xchg.h"
+	"ds_file.h"
+	"ds_path.h"
+	<stdio.h>
+	<string.h>
+	<stdlib.h>
+	<limits.h>
+
+1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_xchg.h
+	"ds_list.h"
+	"ds_vector.h"
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\in.c
+	"in.h"
+	"r_common.h"
+	<stdio.h>
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\cimgui.cpp
+	"./imgui.h"
+	"./imgui_internal.h"
+	"cimgui.h"
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\imgui.h
+	"imconfig.h"
+	<float.h>
+	<stdarg.h>
+	<stddef.h>
+	<string.h>
+	<assert.h>
+	<stdint.h>
+	"imgui_user.h"
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\imconfig.h
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\imgui_internal.h
+	<stdio.h>
+	<stdlib.h>
+	<math.h>
+	<limits.h>
+	"imstb_textedit.h"
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\imstb_textedit.h
+	<string.h>
+
+1593107740 source:c:\users\gabri\documents\compiler\neighbor_editor\lib\imgui\imguizmo.cpp
+	"imgui.h"
+	"imgui_internal.h"
+	"ImGuizmo.h"
+	<malloc.h>
+
+1593107740 c:\users\gabri\documents\compiler\neighbor_editor\lib\imgui\imguizmo.h
+	"imconfig.h"
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\imgui.cpp
+	"imgui.h"
+	"imgui_internal.h"
+	<ctype.h>
+	<stdio.h>
+	<stddef.h>
+	<stdint.h>
+	<Windows.h>
+	<windows.h>
+	<TargetConditionals.h>
+	"stb_sprintf.h"
+	<Carbon/Carbon.h>
+	<imm.h>
+	"imgui_user.inl"
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\imgui_demo.cpp
+	"imgui.h"
+	<ctype.h>
+	<limits.h>
+	<math.h>
+	<stdio.h>
+	<stdlib.h>
+	<stddef.h>
+	<stdint.h>
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\imgui_draw.cpp
+	"imgui.h"
+	"imgui_internal.h"
+	<stdio.h>
+	<alloca.h>
+	<malloc.h>
+	<stdlib.h>
+	"imstb_rectpack.h"
+	"imstb_truetype.h"
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\imstb_rectpack.h
+	<stdlib.h>
+	<assert.h>
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\imstb_truetype.h
+	"stb_truetype.h"
+	<stdio.h>
+	"stb_truetype.h"
+	<math.h>
+	<math.h>
+	<math.h>
+	<math.h>
+	<math.h>
+	<stdlib.h>
+	<assert.h>
+	<string.h>
+	<string.h>
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\imgui_widgets.cpp
+	"imgui.h"
+	"imgui_internal.h"
+	<ctype.h>
+	<stddef.h>
+	<stdint.h>
+	"imstb_textedit.h"
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\mdl.c
+	"mdl.h"
+	"lib/dstuff/ds_stack_list.h"
+	"lib/dstuff/ds_file.h"
+	"lib/dstuff/ds_path.h"
+	"lib/dstuff/ds_xchg.h"
+	"lib/dstuff/ds_obj.h"
+	"lib/dstuff/ds_vector.h"
+	"lib/dstuff/ds_mem.h"
+	"r_nvkl.h"
+	"r_draw.h"
+	<stdlib.h>
+	<string.h>
+	<float.h>
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\mem.c
+	"mem.h"
+	<stdlib.h>
+	<stdio.h>
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\mem.h
+	<stdint.h>
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\phy.c
+	<stdlib.h>
+	<string.h>
+	<float.h>
+	<stdio.h>
+	"r_draw.h"
+	"phy.h"
+	"lib/dstuff/ds_stack_list.h"
+	"lib/dstuff/ds_dbvh.h"
+
+1593153646 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.c
+	"r_draw.h"
+	"spr.h"
+	"lib/dstuff/ds_file.h"
+	"lib/dstuff/ds_path.h"
+	"lib/dstuff/ds_mem.h"
+	<stdlib.h>
+	<stdio.h>
+	<stddef.h>
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.c
+	"r_nvkl.h"
+	"lib/dstuff/ds_mem.h"
+	"lib/dstuff/ds_path.h"
+	"lib/dstuff/ds_stack_list.h"
+	"lib/dstuff/ds_ringbuffer.h"
+	"lib/dstuff/ds_list.h"
+	<stdlib.h>
+	<string.h>
+	"lib/stb/stb_image.h"
+	"lib/SDL/include/SDL2/SDL_thread.h"
+	"lib/SDL/include/SDL2/SDL_atomic.h"
+	"lib/SDL/include/SDL2/SDL_vulkan.h"
+
+1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_vulkan.h
+	"SDL_video.h"
+	"begin_code.h"
+	"close_code.h"
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_vis.c
+	"r_vis.h"
+	"r_draw.h"
+	"ent.h"
+	"lib/dstuff/ds_stack_list.h"
+	<stdint.h>
+
+1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_vis.h
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\spr.c
+	"spr.h"
+	"lib/dstuff/ds_stack_list.h"
+	"lib/dstuff/ds_list.h"
+	"lib/dstuff/ds_sprpk.h"
+	"lib/stb/stb_image.h"
+
+1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ui.c
+	"ui.h"
+	"in.h"
+	"r_draw.h"
+	<stdio.h>
+	<stdint.h>
+	<stdlib.h>
+
+1593153000 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\scr.c
+	"scr.h"
+	"lib/angelscript/include/angelscript.h"
+	"lib/dstuff/ds_stack_list.h"
+	"lib/dstuff/ds_list.h"
+	"lib/dstuff/ds_mem.h"
+	"lib/dstuff/ds_vector.h"
+	<string.h>
+	<stdio.h>
+	<stdlib.h>
+	<stdarg.h>
+
+1568513860 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\angelscript\include\angelscript.h
+	<stddef.h>
+	<stdint.h>
+	<type_traits>
+
+1593158982 source:c:\users\gabri\documents\compiler\neighbor_editor\bsh.c
+	"bsh.h"
+	"neighbor/lib/dstuff/ds_mem.h"
+	<string.h>
+	<stdlib.h>
+
+1593157927 c:\users\gabri\documents\compiler\neighbor_editor\bsh.h
+	"neighbor/lib/dstuff/ds_matrix.h"
+	"neighbor/lib/dstuff/ds_vector.h"
+	<stdint.h>
+
+1593158804 source:c:\users\gabri\documents\compiler\neighbor_editor\r_ed.c
+	"r_ed.h"
+	"neighbor/r_draw.h"
+
+1593157892 c:\users\gabri\documents\compiler\neighbor_editor\r_ed.h
+	"bsh.h"
+

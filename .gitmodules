@@ -1,0 +1,3 @@
+[submodule "neighbor"]
+	path = neighbor
+	url = https://github.com/GabrielCNoble/neighbor.git

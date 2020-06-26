@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="neighbor_editor" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="Release">
+				<Option output="./neighbor_editor" prefix_auto="1" extension_auto="1" />
+				<Option object_output="./" />
+				<Option type="1" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-O2" />
+				</Compiler>
+				<Linker>
+					<Add option="-s" />
+				</Linker>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-Wall" />
+		</Compiler>
+		<Unit filename="lib/imgui/ImGuizmo.cpp" />
+		<Unit filename="lib/imgui/ImGuizmo.h" />
+		<Unit filename="main.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/ent.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/ent.h" />
+		<Unit filename="neighbor/g.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/g.h" />
+		<Unit filename="neighbor/impl.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/in.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/in.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_dbvh.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_file.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_geometry.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_list.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_matrix.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_mem.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_obj.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_path.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_ringbuffer.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_sprpk.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_stack_list.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_utils.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_vector.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_xchg.h" />
+		<Unit filename="neighbor/lib/imgui/cimgui.cpp" />
+		<Unit filename="neighbor/lib/imgui/cimgui.h" />
+		<Unit filename="neighbor/lib/imgui/imconfig.h" />
+		<Unit filename="neighbor/lib/imgui/imgui.cpp" />
+		<Unit filename="neighbor/lib/imgui/imgui.h" />
+		<Unit filename="neighbor/lib/imgui/imgui_demo.cpp" />
+		<Unit filename="neighbor/lib/imgui/imgui_draw.cpp" />
+		<Unit filename="neighbor/lib/imgui/imgui_internal.h" />
+		<Unit filename="neighbor/lib/imgui/imgui_widgets.cpp" />
+		<Unit filename="neighbor/lib/imgui/imstb_rectpack.h" />
+		<Unit filename="neighbor/lib/imgui/imstb_textedit.h" />
+		<Unit filename="neighbor/lib/imgui/imstb_truetype.h" />
+		<Unit filename="neighbor/mdl.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/mdl.h" />
+		<Unit filename="neighbor/mem.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/mem.h" />
+		<Unit filename="neighbor/phy.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/phy.h" />
+		<Unit filename="neighbor/r_common.h" />
+		<Unit filename="neighbor/r_draw.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/r_draw.h" />
+		<Unit filename="neighbor/r_nvkl.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/r_nvkl.h" />
+		<Unit filename="neighbor/r_vis.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/r_vis.h" />
+		<Unit filename="neighbor/scr.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/scr.h" />
+		<Unit filename="neighbor/spr.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/spr.h" />
+		<Unit filename="neighbor/ui.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/ui.h" />
+		<Extensions>
+			<lib_finder disable_auto="1" />
+			<code_completion />
+			<envvars />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>
