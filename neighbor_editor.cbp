@@ -12,21 +12,38 @@
 				<Option type="1" />
 				<Option compiler="gcc" />
 				<Compiler>
-					<Add option="-O2" />
+					<Add option="-g" />
+					<Add directory="neighbor/lib/imgui" />
 				</Compiler>
 				<Linker>
-					<Add option="-s" />
+					<Add library="SDL2" />
+					<Add library="vulkan-1" />
+					<Add library="angelscript" />
+					<Add directory="neighbor/lib/vulkan/lib" />
+					<Add directory="neighbor/lib/SDL/lib" />
+					<Add directory="neighbor/lib/angelscript/lib" />
 				</Linker>
 			</Target>
 		</Build>
 		<Compiler>
 			<Add option="-Wall" />
+			<Add option="-Wno-switch" />
+			<Add option="-Wno-missing-braces" />
 		</Compiler>
+		<Unit filename="bsh.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="bsh.h" />
+		<Unit filename="ed.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="ed.h" />
 		<Unit filename="lib/imgui/ImGuizmo.cpp" />
 		<Unit filename="lib/imgui/ImGuizmo.h" />
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>
+		<Unit filename="main.h" />
 		<Unit filename="neighbor/ent.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -72,10 +89,6 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="neighbor/mdl.h" />
-		<Unit filename="neighbor/mem.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="neighbor/mem.h" />
 		<Unit filename="neighbor/phy.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -94,7 +107,7 @@
 		</Unit>
 		<Unit filename="neighbor/r_vis.h" />
 		<Unit filename="neighbor/scr.c">
-			<Option compilerVar="CC" />
+			<Option compilerVar="CPP" />
 		</Unit>
 		<Unit filename="neighbor/scr.h" />
 		<Unit filename="neighbor/spr.c">
@@ -105,11 +118,16 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="neighbor/ui.h" />
+		<Unit filename="r_ed.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="r_ed.h" />
+		<Unit filename="ui_ed.c">
+			<Option compilerVar="CPP" />
+		</Unit>
+		<Unit filename="ui_ed.h" />
 		<Extensions>
 			<lib_finder disable_auto="1" />
-			<code_completion />
-			<envvars />
-			<debugger />
 		</Extensions>
 	</Project>
 </CodeBlocks_project_file>

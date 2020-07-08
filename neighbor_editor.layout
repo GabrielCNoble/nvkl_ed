@@ -2,9 +2,149 @@
 <CodeBlocks_layout_file>
 	<FileVersion major="1" minor="0" />
 	<ActiveTarget name="Release" />
-	<File name="main.c" open="1" top="1" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+	<File name="neighbor\impl.c" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
 		<Cursor>
-			<Cursor1 position="3" topLine="0" />
+			<Cursor1 position="174" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="ed.h" open="1" top="0" tabpos="3" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="1472" topLine="8" />
+		</Cursor>
+	</File>
+	<File name="r_ed.c" open="1" top="0" tabpos="5" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="2595" topLine="45" />
+		</Cursor>
+	</File>
+	<File name="neighbor\r_draw.c" open="1" top="0" tabpos="12" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="37935" topLine="885" />
+		</Cursor>
+	</File>
+	<File name="r_ed.h" open="0" top="0" tabpos="19" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="142" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="neighbor\lib\dstuff\ds_file.h" open="1" top="0" tabpos="16" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="945" topLine="21" />
+		</Cursor>
+	</File>
+	<File name="neighbor\scr.c" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="4565" topLine="162" />
+		</Cursor>
+	</File>
+	<File name="lib\imgui\ImGuizmo.cpp" open="0" top="0" tabpos="17" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="67702" topLine="1718" />
+		</Cursor>
+	</File>
+	<File name="neighbor\ui.c" open="0" top="0" tabpos="11" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="5767" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="main.c" open="0" top="0" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="167" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="bsh.c" open="1" top="0" tabpos="2" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="8497" topLine="173" />
+		</Cursor>
+	</File>
+	<File name="neighbor\r_nvkl.h" open="1" top="0" tabpos="8" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="6365" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="neighbor\r_draw.h" open="1" top="0" tabpos="11" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="4225" topLine="234" />
+		</Cursor>
+	</File>
+	<File name="neighbor\r_common.h" open="1" top="1" tabpos="10" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="8258" topLine="537" />
+		</Cursor>
+	</File>
+	<File name="neighbor\in.h" open="1" top="0" tabpos="6" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="734" topLine="3" />
+		</Cursor>
+	</File>
+	<File name="main.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="59" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="neighbor\lib\imgui\imgui.h" open="0" top="0" tabpos="18" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="86649" topLine="719" />
+		</Cursor>
+	</File>
+	<File name="ed.c" open="1" top="0" tabpos="4" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="4859" topLine="106" />
+		</Cursor>
+	</File>
+	<File name="neighbor\lib\dstuff\ds_matrix.h" open="0" top="0" tabpos="8" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="1625" topLine="274" />
+		</Cursor>
+	</File>
+	<File name="ui_ed.h" open="0" top="0" tabpos="15" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="448" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="neighbor\scr.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="0" topLine="33" />
+		</Cursor>
+	</File>
+	<File name="neighbor\ui.h" open="0" top="0" tabpos="12" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="218" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="neighbor\in.c" open="1" top="0" tabpos="7" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="1014" topLine="16" />
+		</Cursor>
+	</File>
+	<File name="ui_ed.c" open="0" top="0" tabpos="16" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="1394" topLine="25" />
+		</Cursor>
+	</File>
+	<File name="bsh.h" open="1" top="0" tabpos="1" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="150" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="neighbor\r_nvkl.c" open="1" top="0" tabpos="9" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="103903" topLine="2492" />
+		</Cursor>
+	</File>
+	<File name="neighbor\g.h" open="0" top="0" tabpos="14" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="152" topLine="0" />
+		</Cursor>
+	</File>
+	<File name="neighbor\lib\imgui\cimgui.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="59623" topLine="1666" />
+		</Cursor>
+	</File>
+	<File name="neighbor\lib\dstuff\ds_mem.h" open="0" top="0" tabpos="0" split="0" active="1" splitpos="0" zoom_1="0" zoom_2="0">
+		<Cursor>
+			<Cursor1 position="329" topLine="1" />
 		</Cursor>
 	</File>
 </CodeBlocks_layout_file>

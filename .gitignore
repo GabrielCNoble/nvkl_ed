@@ -1,5 +1,9 @@
 *.o 
 *.dll 
 *.exe 
+*.cscope_file_list
+*.cbp
+*.depend
+*.layout
 lib/vulkan
 lib/SDL
