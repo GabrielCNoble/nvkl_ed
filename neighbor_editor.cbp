@@ -38,8 +38,6 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="ed.h" />
-		<Unit filename="lib/imgui/ImGuizmo.cpp" />
-		<Unit filename="lib/imgui/ImGuizmo.h" />
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>

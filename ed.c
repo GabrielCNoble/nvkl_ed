@@ -14,12 +14,23 @@ float ed_yaw;
 //struct list_t ed_selection_contexts;
 //struct ed_selection_context_t *ed_current_selection_context;
 
-uint32_t ed_current_context = ED_EDITOR_CONTEXT_LAST;
-struct ed_editor_context_t *ed_contexts;
+//uint32_t ed_current_context = ED_EDITOR_CONTEXT_LAST;
+//struct ed_editor_context_t *ed_active_context;
+struct ed_context_t ed_contexts[ED_CONTEXT_LAST];
+
+struct ed_editor_window_t *ed_windows;
+struct ed_editor_window_t *ed_last_window;
+struct ed_editor_window_t *ed_active_window;
+
 struct bsh_brush_t *brush;
 struct r_framebuffer_h ed_picking_framebuffer;
 struct r_render_pass_handle_t ed_picking_render_pass;
 uint32_t *ed_picking_memory;
+uint32_t ed_frame;
+
+struct stack_list_t ed_objects;
+
+void (*ed_TranslateObjectFunction[ED_OBJECT_TYPE_LAST])(struct ed_object_t *object, vec3_t *translation) = {NULL};
 
 void ed_Init()
 {
@@ -38,15 +49,34 @@ void ed_Init()
     in_RegisterKey(SDL_SCANCODE_R);
     in_RegisterKey(SDL_SCANCODE_G);
     
-    ed_contexts = mem_Calloc(ED_EDITOR_CONTEXT_LAST, sizeof(struct ed_editor_context_t));
-    context = ed_contexts;
-    context->transform_type = ED_TRANSFORM_TYPE_TRANSLATION;
-    context->transform_mode = ED_TRANSFORM_MODE_WORLD;
-    context->selections = create_list(sizeof(struct ed_selection_t), 512);
-    context->ed_EditFunction = ed_EditWorld;
-    mat4_t_identity(&context->gizmo_transform);
+    ed_objects = create_stack_list(sizeof(struct ed_object_t), 512);
     
-    ed_SetCurrentContext(ED_EDITOR_CONTEXT_WORLD);
+    
+    ed_contexts[ED_CONTEXT_WORLD].input_function = ed_WorldContextInput;
+    ed_contexts[ED_CONTEXT_WORLD].update_function = ed_WorldContextUpdate;
+    ed_contexts[ED_CONTEXT_WORLD].context_data = mem_Calloc(1, sizeof(struct ed_world_context_data_t));
+    struct ed_world_context_data_t *data = ed_contexts[ED_CONTEXT_WORLD].context_data;
+    data->sub_contexts = mem_Calloc(ED_WORLD_CONTEXT_SUB_CONTEXT_LAST, sizeof(struct ed_world_context_sub_context_t));
+    struct ed_world_context_sub_context_t *sub_context = data->sub_contexts + ED_WORLD_CONTEXT_SUB_CONTEXT_WORLD;
+    sub_context->input_function = ed_WorldContextWorldSubContextInput;
+    sub_context->update_function = ed_WorldContextWorldSubContextUpdate;
+    data->active_sub_context = sub_context;
+    
+    
+//    data->selections = create_list(sizeof(struct ed_object_h), 512);
+    
+    ed_windows = mem_Calloc(1, sizeof(struct ed_editor_viewport_t));
+    ed_last_window = (struct ed_editor_window_t *)ed_windows;
+    ed_active_window = (struct ed_editor_window_t *)ed_windows;
+    ed_windows->attached_context = ed_contexts + ED_CONTEXT_WORLD;
+    
+    struct ed_editor_viewport_t *viewport = (struct ed_editor_viewport_t *)ed_windows;
+    viewport->base.type = ED_EDITOR_WINDOW_TYPE_VIEWPORT;
+    viewport->width = 800;
+    viewport->height = 600;
+    viewport->view_pitch = 0.0;
+    viewport->view_yaw = 0.0;
+
     brush = bsh_CreateCubeBrush(&brush_position, &brush_orientation, &brush_scale);
     
     struct r_shader_description_t shader_description = {
@@ -151,10 +181,6 @@ void ed_Shutdown()
 void ed_Main(float delta_time)
 {
     struct r_view_t *view;
-//    static float pos_time = 0.0;
-//    static float rot_time = 0.0;
-//    struct bsh_polygon_t *front;
-//    struct bsh_polygon_t *back;
     
     if(in_GetKeyState(SDL_SCANCODE_ESCAPE) & IN_INPUT_STATE_PRESSED)
     {
@@ -166,8 +192,8 @@ void ed_Main(float delta_time)
         r_Fullscreen(1);
     }
     
-    ed_FlyView();
-    ed_contexts[ed_current_context].ed_EditFunction(NULL);
+//    ed_FlyView();
+    ed_UpdateWindows();
     r_ed_DrawBrushes();
     
 //    pos_time += 0.01;
@@ -207,7 +233,79 @@ void ed_Main(float delta_time)
 //    }
 }
 
-void ed_FlyView()
+void ed_UpdateWindows()
+{
+    struct ed_editor_window_t *window = ed_windows;
+    
+    while(window)
+    {
+        struct ed_context_t *context = window->attached_context;
+        
+        switch(window->type)
+        {
+            case ED_EDITOR_WINDOW_TYPE_VIEWPORT:
+            
+            break;
+        }
+        
+        if(context->update_frame != ed_frame)
+        {
+            context->update_frame = ed_frame;
+            
+            if(window == ed_active_window)
+            {
+                context->input_function(context->context_data, window);
+            }
+            
+            context->update_function(context->context_data, window);
+        }
+        
+        window = window->next;
+    }
+    
+    ed_frame++;
+}
+
+//void ed_ApplyTransform(mat4_t *apply_to, uint32_t apply_to_count, mat4_t *to_apply, uint32_t transform_type, uint32_t transform_mode)
+//{
+//    switch(transform_type)
+//    {
+//        case ED_TRANSFORM_TYPE_TRANSLATION:
+//            for(uint32_t transform_index = 0; transform_index < apply_to_count; transform_index++)
+//            {
+//                mat4_t *transform = apply_to + transform_index;
+//                vec4_t_add(&transform->rows[3], &transform->rows[3], &to_apply->rows[3]);
+//            }
+//        break;
+//        
+//        case ED_TRANSFORM_TYPE_ROTATION:
+//            
+//        break;
+//        
+//        case ED_TRANSFORM_TYPE_SCALE:
+//            
+//        break;
+//    }
+//}
+
+//void ed_DrawObjects(union r_command_buffer_h command_buffer)
+//{
+//    struct ed_object_t *object;
+//    object = ed_objects;
+//    
+//    while(object)
+//    {
+//        
+//    }
+//}
+
+/*
+=============================================================
+=============================================================
+=============================================================
+*/
+
+void ed_FlyView(struct ed_editor_viewport_t *viewport)
 {
     float mouse_dx;
     float mouse_dy;
@@ -227,20 +325,20 @@ void ed_FlyView()
         view = r_GetViewPointer();
     
         in_GetMouseDelta(&mouse_dx, &mouse_dy);
-        ed_pitch += mouse_dy * 0.6;
-        ed_yaw -= mouse_dx * 0.6;
+        viewport->view_pitch += mouse_dy * 0.6;
+        viewport->view_yaw -= mouse_dx * 0.6;
         
-        if(ed_pitch > 0.5) ed_pitch = 0.5;
-        else if(ed_pitch < -0.5) ed_pitch = -0.5;
+        if(viewport->view_pitch > 0.5) viewport->view_pitch = 0.5;
+        else if(viewport->view_pitch < -0.5) viewport->view_pitch = -0.5;
         
-        if(ed_yaw > 1.0) ed_yaw = -2.0 + ed_yaw;
-        else if (ed_yaw < -1.0) ed_yaw = 2.0 + ed_yaw;
+        if(viewport->view_yaw > 1.0) viewport->view_yaw = -2.0 + viewport->view_yaw;
+        else if (viewport->view_yaw < -1.0) viewport->view_yaw = 2.0 + viewport->view_yaw;
         
         mat3_t_identity(&view_pitch_matrix);
         mat3_t_identity(&view_yaw_matrix);
         
-        mat3_t_rotate_x(&view_pitch_matrix, ed_pitch);
-        mat3_t_rotate_y(&view_yaw_matrix, ed_yaw);
+        mat3_t_rotate_x(&view_pitch_matrix, viewport->view_pitch);
+        mat3_t_rotate_y(&view_yaw_matrix, viewport->view_yaw);
         mat3_t_mul(&view_orientation, &view_pitch_matrix, &view_yaw_matrix);    
         view_translation = vec3_t_c(0.0, 0.0, 0.0);
         
@@ -277,71 +375,37 @@ void ed_FlyView()
     }
 }
 
-void ed_SetCurrentContext(uint32_t context)
+void ed_WorldContextInput(void *context_data, struct ed_editor_window_t *window)
 {
-    ed_current_context = context;
-}
-
-void ed_EditWorld(void *context_data)
-{
-    struct ed_editor_context_t *context = ed_contexts + ed_current_context;
-    mat4_t gizmo_transform;
-    mat4_t delta_transform;
-    
-    if(in_GetKeyState(SDL_SCANCODE_G) & IN_INPUT_STATE_JUST_PRESSED)
+    struct ed_world_context_data_t *world_context_data;
+    if(in_GetMouseState(IN_MOUSE_BUTTON_MIDDLE) & IN_INPUT_STATE_PRESSED)
     {
-        context->transform_type = ED_TRANSFORM_TYPE_TRANSLATION;
+        ed_FlyView((struct ed_editor_viewport_t *)window);
+        printf("ed_FlyView\n");
     }
-    else if(in_GetKeyState(SDL_SCANCODE_R) & IN_INPUT_STATE_JUST_PRESSED)
+    else
     {
-        context->transform_type = ED_TRANSFORM_TYPE_ROTATION;
-    }
-    else if(in_GetKeyState(SDL_SCANCODE_S) & IN_INPUT_STATE_JUST_PRESSED)
-    {
-        context->transform_type = ED_TRANSFORM_TYPE_SCALE;
-    }
-//    ed_ShowGizmo(context->transform_type, &context->gizmo_transform, NULL);
-}
-
-void ed_ShowGizmo(uint32_t type, mat4_t *transform, mat4_t *delta_transform)
-{
-    struct r_view_t *view;
-    mat4_t projection_matrix;
-    
-    view = r_GetViewPointer();
-    
-    projection_matrix = view->projection_matrix;
-    projection_matrix.rows[1].y = -projection_matrix.rows[1].y;
-//    projection_matrix.rows[2].z = -projection_matrix.rows[2].z;
-    
-    ui_ed_BeginFrame();
-    ui_ed_SetRect(0.0, 0.0, view->viewport.width, view->viewport.height);
-    ui_ed_Manipulate(&view->inv_view_matrix, &projection_matrix, type, TRANSFORM_MODE_WORLD, transform, delta_transform);
-}
-
-void ed_ApplyTransform(mat4_t *apply_to, uint32_t apply_to_count, mat4_t *to_apply, uint32_t transform_type, uint32_t transform_mode)
-{
-    switch(transform_type)
-    {
-        case ED_TRANSFORM_TYPE_TRANSLATION:
-            for(uint32_t transform_index = 0; transform_index < apply_to_count; transform_index++)
-            {
-                mat4_t *transform = apply_to + transform_index;
-                vec4_t_add(&transform->rows[3], &transform->rows[3], &to_apply->rows[3]);
-            }
-        break;
-        
-        case ED_TRANSFORM_TYPE_ROTATION:
-            
-        break;
-        
-        case ED_TRANSFORM_TYPE_SCALE:
-            
-        break;
+        world_context_data = (struct ed_world_context_data_t *)context_data;
+        world_context_data->active_sub_context->input_function(world_context_data->active_sub_context, (struct ed_editor_viewport_t *)window);
     }
 }
 
+void ed_WorldContextUpdate(void *context_data, struct ed_editor_window_t *window)
+{
+    struct ed_world_context_data_t *world_context_data;
+    world_context_data = (struct ed_world_context_data_t *)context_data;
+    world_context_data->active_sub_context->update_function(world_context_data->active_sub_context, (struct ed_editor_viewport_t *)window);
+}
 
+void ed_WorldContextWorldSubContextInput(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport)
+{
+    printf("ed_WorldContextWorldSubContextInput\n");
+}
+
+void ed_WorldContextWorldSubContextUpdate(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport)
+{
+    
+}
 
 
 

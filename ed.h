@@ -3,12 +3,13 @@
 
 #include "bsh.h"
 #include "neighbor/lib/dstuff/ds_list.h"
+#include "neighbor/ent.h"
 
 enum ED_EDITOR_CONTEXT
 {
-    ED_EDITOR_CONTEXT_WORLD = 0,
-    ED_EDITOR_CONTEXT_BRUSH,
-    ED_EDITOR_CONTEXT_LAST
+    ED_CONTEXT_WORLD = 0,
+//    ED_EDITOR_CONTEXT_BRUSH,
+    ED_CONTEXT_LAST
 };
 
 enum ED_SELECTION_TYPE
@@ -35,28 +36,94 @@ enum ED_TRANSFORM_MODE
     ED_TRANSFORM_MODE_LOCAL,
 };
 
-union ed_selection_val_t
+
+enum ED_OBJECT_TYPES
+{
+    ED_OBJECT_TYPE_ENTITY,
+    ED_OBJECT_TYPE_LIGHT,
+    ED_OBJECT_TYPE_BRUSH,
+    ED_OBJECT_TYPE_LAST,
+};
+
+union ed_object_ref_t
 {
     struct bsh_brush_t *brush;
-    struct bsh_polygon_t *face; 
-    /* this will be used both for a single vertice and for an edge */
-    struct {struct bsh_vertex_t *ends[2];} edge;
+    union ent_entity_h entity;
 };
 
-struct ed_selection_t
+struct ed_object_t
 {
+    mat4_t transform;
     uint32_t type;
-    union ed_selection_val_t value;
+    uint32_t start;
+    uint32_t count;
+    uint32_t topology;
+    union ed_object_ref_t object;
 };
 
-struct ed_editor_context_t
+struct ed_object_h
+{
+    uint32_t index;
+};
+
+struct ed_editor_window_t;
+struct ed_editor_viewport_t;
+
+struct ed_context_t
+{
+    void *context_data;
+    uint32_t update_frame;
+    void (*input_function)(void *context_data, struct ed_editor_window_t *window);
+    void (*update_function)(void *context_data, struct ed_editor_window_t *window);
+};
+
+enum ED_WORLD_CONTEXT_SUB_CONTEXT
+{
+    ED_WORLD_CONTEXT_SUB_CONTEXT_WORLD = 0,
+    ED_WORLD_CONTEXT_SUB_CONTEXT_BRUSH,
+    ED_WORLD_CONTEXT_SUB_CONTEXT_PATH,
+    ED_WORLD_CONTEXT_SUB_CONTEXT_LAST
+};
+
+struct ed_world_context_sub_context_t
 {
     struct list_t selections;
+    mat4_t manipulator_transform;
     uint32_t transform_mode;
     uint32_t transform_type;
-    mat4_t gizmo_transform;
-    void (*ed_EditFunction)(void *context_data);
+    void (*input_function)(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
+    void (*update_function)(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
 };
+
+struct ed_world_context_data_t
+{
+    struct ed_world_context_sub_context_t *sub_contexts;
+    struct ed_world_context_sub_context_t *active_sub_context;
+};
+
+enum ED_EDITOR_WINDOW_TYPE
+{
+    ED_EDITOR_WINDOW_TYPE_VIEWPORT = 0,
+};
+
+struct ed_editor_window_t
+{
+    struct ed_editor_window_t *next;
+    struct ed_editor_window_t *prev;
+    struct ed_context_t *attached_context;
+    uint32_t type;
+};
+
+struct ed_editor_viewport_t
+{
+    struct ed_editor_window_t base;
+    uint32_t width;
+    uint32_t height;
+    float view_pitch;
+    float view_yaw;
+};
+
+
 
 void ed_Init();
 
@@ -64,15 +131,37 @@ void ed_Shutdown();
 
 void ed_Main(float delta_time);
 
-void ed_FlyView();
+void ed_UpdateWindows();
 
-void ed_SetCurrentContext(uint32_t context);
-
-void ed_EditWorld(void *context_data);
-
-void ed_ShowGizmo(uint32_t type, mat4_t *transform, mat4_t *delta_transform);
+//void ed_ShowGizmo(uint32_t type, mat4_t *transform, mat4_t *delta_transform);
 
 void ed_ApplyTransform(mat4_t *apply_to, uint32_t apply_to_count, mat4_t *to_apply, uint32_t transform_type, uint32_t transform_mode);
+
+struct ed_object_h ed_CreateObject(mat4_t *transform, uint32_t type, uint32_t start, uint32_t count, union ed_object_ref_t object);
+
+void ed_DestroyObject(struct ed_object_h handle);
+
+//void ed_TranslateObject(struct ed_object_t *object, vec3_t *translation);
+
+//void ed_RotateObject(struct ed_object_t *object, vec3_t *)
+
+void ed_DrawObjects();
+
+/*
+=============================================================
+=============================================================
+=============================================================
+*/
+
+void ed_FlyView(struct ed_editor_viewport_t *viewport);
+
+void ed_WorldContextInput(void *context_data, struct ed_editor_window_t *window);
+
+void ed_WorldContextUpdate(void *context_data, struct ed_editor_window_t *window);
+
+void ed_WorldContextWorldSubContextInput(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
+
+void ed_WorldContextWorldSubContextUpdate(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
 
 
 #endif // ED_H

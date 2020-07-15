@@ -3,6 +3,7 @@
 
 #include "neighbor/lib/dstuff/ds_matrix.h"
 #include "neighbor/lib/dstuff/ds_vector.h"
+#include "neighbor/r_common.h"
 #include <stdint.h>
 
 struct bsh_vertex_t
@@ -31,6 +32,9 @@ struct bsh_brush_t
     uint32_t polygon_count;
     struct bsh_polygon_t *polygons;
     struct bsh_polygon_t *last_polygon;
+    
+    struct r_chunk_h vertices;
+    struct r_chunk_h indices;
     
     mat3_t orientation;
     vec3_t scale;

@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1594245506 source:c:\users\gabri\documents\compiler\neighbor_editor\ed.c
+1594822015 source:c:\users\gabri\documents\compiler\neighbor_editor\ed.c
 	<stdio.h>
 	"ed.h"
 	"neighbor/r_draw.h"
@@ -10,18 +10,19 @@
 	"neighbor/g.h"
 	"ui_ed.h"
 
-1593315351 c:\users\gabri\documents\compiler\neighbor_editor\ed.h
+1594822149 c:\users\gabri\documents\compiler\neighbor_editor\ed.h
 	"bsh.h"
 	"neighbor/lib/dstuff/ds_list.h"
+	"neighbor/ent.h"
 
-1593152525 source:c:\users\gabri\documents\compiler\neighbor_editor\main.c
+1594379248 source:c:\users\gabri\documents\compiler\neighbor_editor\main.c
 	"main.h"
 
 1593152498 c:\users\gabri\documents\compiler\neighbor_editor\main.h
 	"neighbor/g.h"
 	"ed.h"
 
-1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\g.h
+1594379098 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\g.h
 	<stdint.h>
 
 1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ent.c
@@ -50,9 +51,9 @@
 	"r_common.h"
 	<stdint.h>
 
-1594246060 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_common.h
+1594379064 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_common.h
 	<stdint.h>
-	"lib/SDL/include/SDL2/SDL.h"
+	"lib/SDL/include/SDL.h"
 	"lib/dstuff/ds_stack_list.h"
 	"lib/dstuff/ds_list.h"
 	"lib/dstuff/ds_ringbuffer.h"
@@ -501,8 +502,8 @@
 	<stdio.h>
 	<float.h>
 
-1594247484 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\g.c
-	"lib/SDL/include/SDL2/SDL.h"
+1594379118 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\g.c
+	"lib/SDL/include/SDL.h"
 	"g.h"
 	"in.h"
 	"r_nvkl.h"
@@ -514,14 +515,14 @@
 	<stdio.h>
 	<stdint.h>
 
-1593304292 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\in.h
+1594379104 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\in.h
 	<stdint.h>
-	"lib/SDL/include/SDL2/SDL_scancode.h"
+	"lib/SDL/include/SDL.h"
 
 1594247361 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.h
 	"r_common.h"
 
-1593610436 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.h
+1594264553 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.h
 	"r_nvkl.h"
 	"lib/dstuff/ds_matrix.h"
 	"lib/dstuff/ds_list.h"
@@ -628,10 +629,9 @@
 	"ds_list.h"
 	"ds_vector.h"
 
-1593314983 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\in.c
+1594379133 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\in.c
 	"in.h"
-	"lib/SDL/include/SDL2/SDL_events.h"
-	"lib/SDL/include/SDL2/SDL_video.h"
+	"lib/SDL/include/SDL.h"
 	<stdio.h>
 
 1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\imgui\cimgui.cpp
@@ -764,7 +764,7 @@
 	"lib/dstuff/ds_stack_list.h"
 	"lib/dstuff/ds_dbvh.h"
 
-1594247400 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.c
+1594264397 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.c
 	"r_draw.h"
 	"spr.h"
 	"lib/dstuff/ds_file.h"
@@ -774,7 +774,7 @@
 	<stdio.h>
 	<stddef.h>
 
-1594247433 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.c
+1594264101 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.c
 	"r_nvkl.h"
 	"lib/dstuff/ds_mem.h"
 	"lib/dstuff/ds_path.h"
@@ -840,9 +840,10 @@
 	<string.h>
 	<stdlib.h>
 
-1593817159 c:\users\gabri\documents\compiler\neighbor_editor\bsh.h
+1594374745 c:\users\gabri\documents\compiler\neighbor_editor\bsh.h
 	"neighbor/lib/dstuff/ds_matrix.h"
 	"neighbor/lib/dstuff/ds_vector.h"
+	"neighbor/r_common.h"
 	<stdint.h>
 
 1594244204 source:c:\users\gabri\documents\compiler\neighbor_editor\r_ed.c
@@ -852,12 +853,14 @@
 1593609824 c:\users\gabri\documents\compiler\neighbor_editor\r_ed.h
 	"bsh.h"
 
-1593315252 source:c:\users\gabri\documents\compiler\neighbor_editor\ui_ed.c
+1594248185 source:c:\users\gabri\documents\compiler\neighbor_editor\ui_ed.c
 	"ui_ed.h"
 	"neighbor/lib/imgui/imgui.h"
-	"lib/imgui/ImGuizmo.h"
 
 1593315229 c:\users\gabri\documents\compiler\neighbor_editor\ui_ed.h
 	"neighbor/lib/dstuff/ds_matrix.h"
 	<stdint.h>
+
+1594379302 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl.h
+	"SDL2/SDL.h"
 
