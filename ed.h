@@ -131,6 +131,8 @@ void ed_Shutdown();
 
 void ed_Main(float delta_time);
 
+void ed_UpdateLayout();
+
 void ed_UpdateWindows();
 
 //void ed_ShowGizmo(uint32_t type, mat4_t *transform, mat4_t *delta_transform);

@@ -6,5 +6,6 @@
 *.depend
 *.layout
 *.txt
+*.ini
 lib/vulkan
 lib/SDL

@@ -52,7 +52,20 @@ void r_ed_DrawBrush(struct bsh_brush_t *brush)
             r_tri_verts[vert_index].position.z = polygon->vertices[vert_index].position.z;
             r_tri_verts[vert_index].position.w = 1.0;     
             
-            r_tri_verts[vert_index].color = vec4_t_c(1.0, 1.0, 1.0, 1.0);       
+            switch(vert_index % 3)
+            {
+                case 0:
+                    r_tri_verts[vert_index].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);       
+                break;
+                
+                case 1:
+                    r_tri_verts[vert_index].color = vec4_t_c(0.0, 1.0, 0.0, 1.0);       
+                break;
+                
+                case 2:
+                    r_tri_verts[vert_index].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);       
+                break;
+            }
         }
         
         r_tri_indices[0] = 0;
@@ -62,7 +75,7 @@ void r_ed_DrawBrush(struct bsh_brush_t *brush)
         r_tri_indices[4] = 3;
         r_tri_indices[5] = 0;
         
-        r_i_DrawTrisImmediate(r_tri_verts, 4, r_tri_indices, 6, 1);
+        r_i_DrawImmediate(r_tri_verts, 4, r_tri_indices, 6);
         polygon = polygon->next;
     }
 }
@@ -77,6 +90,11 @@ void r_ed_DrawBrushes()
     r_RecomputeInvViewMatrix();
     r_RecomputeProjectionMatrix();
     r_i_BeginSubmission(&view->inv_view_matrix, &view->projection_matrix);
+    r_i_SetCullMode(VK_CULL_MODE_NONE);
+    r_i_SetScissor(0, 0, view->viewport.width, view->viewport.height);
+    r_i_SetDepthTest(1);
+    r_i_SetDepthWrite(1);
+    r_i_SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     while(brush)
     {
         r_ed_DrawBrush(brush);

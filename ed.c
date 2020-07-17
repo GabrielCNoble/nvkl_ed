@@ -2,6 +2,7 @@
 #include "ed.h"
 #include "neighbor/r_draw.h"
 #include "neighbor/lib/dstuff/ds_mem.h"
+#include "neighbor/ui.h"
 #include "r_ed.h"
 #include "bsh.h"
 #include "neighbor/in.h"
@@ -42,6 +43,7 @@ void ed_Init()
     
     in_RegisterKey(SDL_SCANCODE_ESCAPE);
     in_RegisterKey(SDL_SCANCODE_SPACE);
+    in_RegisterKey(SDL_SCANCODE_LSHIFT);
     in_RegisterKey(SDL_SCANCODE_W);
     in_RegisterKey(SDL_SCANCODE_S);
     in_RegisterKey(SDL_SCANCODE_A);
@@ -192,10 +194,9 @@ void ed_Main(float delta_time)
         r_Fullscreen(1);
     }
     
-//    ed_FlyView();
     ed_UpdateWindows();
     r_ed_DrawBrushes();
-    
+
 //    pos_time += 0.01;
 //    rot_time += 0.0372;
     
@@ -231,6 +232,11 @@ void ed_Main(float delta_time)
 //        
 //        r_i_EndSubmission();
 //    }
+}
+
+void ed_UpdateLayout()
+{
+    
 }
 
 void ed_UpdateWindows()
@@ -315,6 +321,8 @@ void ed_FlyView(struct ed_editor_viewport_t *viewport)
     vec3_t view_translation;
     struct r_view_t *view;
     
+//    printf("%d\n", in_GetMouseState(IN_MOUSE_BUTTON_MIDDLE));
+    
     if(in_GetMouseState(IN_MOUSE_BUTTON_MIDDLE) & IN_INPUT_STATE_PRESSED)
     {
         if(in_GetMouseState(IN_MOUSE_BUTTON_MIDDLE) & IN_INPUT_STATE_JUST_PRESSED)
@@ -369,22 +377,22 @@ void ed_FlyView(struct ed_editor_viewport_t *viewport)
         mat4_t_comp(&view->view_transform, &view_orientation, &view_translation);
         r_RecomputeInvViewMatrix();
     }
-    else if(in_GetMouseState(IN_MOUSE_BUTTON_MIDDLE) & IN_INPUT_STATE_JUST_RELEASED)
-    {
-        in_RelativeMode(0);
-    }
 }
 
 void ed_WorldContextInput(void *context_data, struct ed_editor_window_t *window)
 {
     struct ed_world_context_data_t *world_context_data;
+    
     if(in_GetMouseState(IN_MOUSE_BUTTON_MIDDLE) & IN_INPUT_STATE_PRESSED)
     {
         ed_FlyView((struct ed_editor_viewport_t *)window);
-        printf("ed_FlyView\n");
     }
     else
     {
+        if(in_GetMouseState(IN_MOUSE_BUTTON_MIDDLE) & IN_INPUT_STATE_JUST_RELEASED)
+        {
+            in_RelativeMode(0);
+        }
         world_context_data = (struct ed_world_context_data_t *)context_data;
         world_context_data->active_sub_context->input_function(world_context_data->active_sub_context, (struct ed_editor_viewport_t *)window);
     }
@@ -399,7 +407,21 @@ void ed_WorldContextUpdate(void *context_data, struct ed_editor_window_t *window
 
 void ed_WorldContextWorldSubContextInput(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport)
 {
-    printf("ed_WorldContextWorldSubContextInput\n");
+    if(in_GetKeyState(SDL_SCANCODE_LSHIFT) & IN_INPUT_STATE_PRESSED)
+    {
+        if(in_GetKeyState(SDL_SCANCODE_A) & IN_INPUT_STATE_JUST_PRESSED)
+        {
+            igSetNextWindowPos((ImVec2){300.0, 300.0}, 0, (ImVec2){0.0, 0.0});
+            igOpenPopup("AddToWorldMenu", 0);
+        }
+    }
+    
+    if(igBeginPopup("AddToWorldMenu", 0))
+    {
+        igMenuItemBool("BALLS", NULL, 0, 1);
+        igMenuItemBool("SHIT", NULL, 0, 1);
+        igEndPopup();
+    }
 }
 
 void ed_WorldContextWorldSubContextUpdate(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport)
