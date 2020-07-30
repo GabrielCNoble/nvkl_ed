@@ -42,65 +42,41 @@ void r_ed_DrawBrush(struct bsh_brush_t *brush)
 {
     struct bsh_polygon_t *polygon;
     polygon = brush->polygons;
+    mat4_t transform;
+    mat4_t_identity(&transform);
     
-    while(polygon)
-    {
-        for(uint32_t vert_index = 0; vert_index < 4; vert_index++)
-        {
-            r_tri_verts[vert_index].position.x = polygon->vertices[vert_index].position.x;
-            r_tri_verts[vert_index].position.y = polygon->vertices[vert_index].position.y;
-            r_tri_verts[vert_index].position.z = polygon->vertices[vert_index].position.z;
-            r_tri_verts[vert_index].position.w = 1.0;     
-            
-            switch(vert_index % 3)
-            {
-                case 0:
-                    r_tri_verts[vert_index].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);       
-                break;
-                
-                case 1:
-                    r_tri_verts[vert_index].color = vec4_t_c(0.0, 1.0, 0.0, 1.0);       
-                break;
-                
-                case 2:
-                    r_tri_verts[vert_index].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);       
-                break;
-            }
-        }
-        
-        r_tri_indices[0] = 0;
-        r_tri_indices[1] = 1;
-        r_tri_indices[2] = 2;
-        r_tri_indices[3] = 2;
-        r_tri_indices[4] = 3;
-        r_tri_indices[5] = 0;
-        
-        r_i_DrawImmediate(r_tri_verts, 4, r_tri_indices, 6);
-        polygon = polygon->next;
-    }
+    r_Draw(brush->start, brush->count, r_GetDefaultMaterialPointer(), &transform);
 }
 
 void r_ed_DrawBrushes()
 {
-    struct bsh_brush_t *brush;
-    brush = bsh_GetBrushList();
+    struct stack_list_t *brushes;
     struct r_view_t *view;
+    brushes = bsh_GetBrushList();
+    mat4_t transform;
+    struct r_begin_submission_info_t begin_info;
+    
+    mat4_t_identity(&transform);
     
     view = r_GetViewPointer();
-    r_RecomputeInvViewMatrix();
-    r_RecomputeProjectionMatrix();
-    r_i_BeginSubmission(&view->inv_view_matrix, &view->projection_matrix);
-    r_i_SetCullMode(VK_CULL_MODE_NONE);
-    r_i_SetScissor(0, 0, view->viewport.width, view->viewport.height);
-    r_i_SetDepthTest(1);
-    r_i_SetDepthWrite(1);
-    r_i_SetPrimitiveTopology(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    while(brush)
+    
+    begin_info.inv_view_matrix = view->inv_view_matrix;
+    begin_info.projection_matrix = view->projection_matrix;
+    begin_info.framebuffer = R_INVALID_FRAMEBUFFER_HANDLE;
+    begin_info.viewport = view->viewport;
+    begin_info.scissor = view->scissor;
+    begin_info.clear_framebuffer = 1;
+    
+    r_BeginSubmission(&begin_info);
+    for(uint32_t brush_index = 0; brush_index < brushes->cursor; brush_index++)
     {
-        r_ed_DrawBrush(brush);
-        brush = brush->next;
+        struct bsh_brush_t *brush = bsh_GetBrushPointer(BSH_BRUSH_HANDLE(brush_index));
+        if(brush)
+        {
+            r_Draw(brush->start, brush->count, r_GetDefaultMaterialPointer(), &transform);
+        }
     }
-    r_i_EndSubmission();
+    r_EndSubmission();
 }
 
 

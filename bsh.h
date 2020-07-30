@@ -22,11 +22,15 @@ struct bsh_polygon_t
     struct bsh_polygon_t *next;
 };
 
-struct bsh_brush_t
+enum BSH_BRUSH_TYPE
 {
-    struct bsh_brush_t *next;
-    struct bsh_brush_t *prev;
-    
+    BSH_BRUSH_TYPE_CUBE = 0,
+    BSH_BRUSH_TYPE_CYLINDER,
+    BSH_BRUSH_TYPE_NONE,
+};
+
+struct bsh_brush_t
+{    
     uint32_t type;
     uint32_t subtractive;
     uint32_t polygon_count;
@@ -35,11 +39,23 @@ struct bsh_brush_t
     
     struct r_chunk_h vertices;
     struct r_chunk_h indices;
+    uint32_t start;
+    uint32_t count;
     
     mat3_t orientation;
     vec3_t scale;
     vec3_t position;
 };
+
+struct bsh_brush_h
+{
+    uint32_t index;
+};
+
+#define BSH_BRUSH_HANDLE(index) (struct bsh_brush_h){index}
+#define BSH_INVALID_BRUSH_INDEX 0xffffffff
+#define BSH_INVALID_BRUSH_HANDLE BSH_BRUSH_HANDLE(BSH_INVALID_BRUSH_INDEX)
+
 
 
 enum BSH_BSP_TYPE
@@ -81,25 +97,25 @@ struct bsh_bsp_t
     struct bsh_polygon_t *anti_splitter;
 };
 
+void bsh_Init();
 
-enum BSH_BRUSH_TYPE
-{
-    BSH_BRUSH_TYPE_CUBE = 0,
-    BSH_BRUSH_TYPE_CYLINDER,
-};
+void bsh_Shutdown();
 
+struct bsh_brush_h bsh_CreateBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale, uint32_t type);
 
-struct bsh_brush_t *bsh_CreateBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale, uint32_t type);
+struct bsh_brush_h bsh_CreateCubeBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale);
 
-struct bsh_brush_t *bsh_CreateCubeBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale);
+struct bsh_brush_h bsh_CreateCylinderBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale, uint32_t vert_count);
 
-struct bsh_brush_t *bsh_CreateCylinderBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale, uint32_t vert_count);
+void bsh_DestroyBrush(struct bsh_brush_h handle);
 
-void bsh_DestroyBrush(struct bsh_brush_t *brush);
+struct bsh_brush_t *bsh_GetBrushPointer(struct bsh_brush_h brush);
 
-void bsh_TranslateBrush(struct bsh_brush_t *brush, vec3_t *translation);
+//void bsh_TranslateBrush(struct bsh_brush_t *brush, vec3_t *translation);
 
-void bsh_SetBrushPosition(struct bsh_brush_t *brush, vec3_t *position);
+//void bsh_SetBrushPosition(struct bsh_brush_t *brush, vec3_t *position);
+
+void bsh_TriangulatePolygons(struct bsh_brush_h handle);
 
 
 struct bsh_polygon_t *bsh_CopyPolygons(struct bsh_polygon_t *polygons);
@@ -126,7 +142,7 @@ void bsh_DestroyBsp(struct bsh_bsp_t *bsp);
 
 struct bsh_bsp_t *bsh_IncrementalSetOp(struct bsh_bsp_t *bsp, struct bsh_polygon_t *polygons, uint32_t op);
 
-struct bsh_brush_t *bsh_GetBrushList();
+struct stack_list_t *bsh_GetBrushList();
 
 
 

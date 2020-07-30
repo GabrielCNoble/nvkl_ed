@@ -1,10 +1,13 @@
 #include "bsh.h"
 #include "neighbor/lib/dstuff/ds_mem.h"
+#include "neighbor/r_draw.h"
 #include <string.h>
 #include <stdlib.h>
 
-struct bsh_brush_t *bsh_brushes = NULL;
-struct bsh_brush_t *bsh_last_brush = NULL;
+//struct bsh_brush_t *bsh_brushes = NULL;
+//struct bsh_brush_t *bsh_last_brush = NULL;
+
+struct stack_list_t bsh_brushes;
 
 
 struct bsh_vertex_t bsh_cube_brush_verts[] = 
@@ -46,10 +49,18 @@ struct bsh_vertex_t bsh_cube_brush_verts[] =
     (struct bsh_vertex_t){.position = { 0.5,-0.5,-0.5}, .normal = { 0.0, 0.0,-1.0}, .tangent = {-1.0, 0.0, 0.0}, .tex_coords = {1.0, 0.0}},
 };
 
-struct bsh_brush_t *bsh_CreateBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale, uint32_t type)
+void bsh_Init()
+{
+    bsh_brushes = create_stack_list(sizeof(struct bsh_brush_t), 512);
+}
+
+struct bsh_brush_h bsh_CreateBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale, uint32_t type)
 {
     struct bsh_brush_t *brush;
-    brush = mem_Calloc(1, sizeof(struct bsh_brush_t ));
+    struct bsh_brush_h handle;
+    
+    handle.index = add_stack_list_element(&bsh_brushes, NULL);
+    brush = get_stack_list_element(&bsh_brushes, handle.index);
     
     brush->type = type;
     brush->subtractive = 0;
@@ -58,28 +69,21 @@ struct bsh_brush_t *bsh_CreateBrush(vec3_t *position, mat3_t *orientation, vec3_
     brush->orientation = *orientation;
     brush->polygons = NULL;
     
-    if(!bsh_brushes)
-    {
-        bsh_brushes = brush;
-    }
-    else
-    {
-        bsh_last_brush->next = brush;
-        brush->prev = bsh_last_brush;
-    }
-    
-    bsh_last_brush = brush;
-    
-    return brush;
+    return handle;
 }
 
-struct bsh_brush_t *bsh_CreateCubeBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale)
+struct bsh_brush_h bsh_CreateCubeBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale)
 {
     struct bsh_brush_t *brush;
+    struct bsh_brush_h handle;
     struct bsh_polygon_t *polygon;
     struct bsh_vertex_t *vertices = bsh_cube_brush_verts;
+    struct r_chunk_t *chunk;
+    uint32_t draw_vert_index = 0;
+    static struct r_vertex_t draw_verts[36];
     
-    brush = bsh_CreateBrush(position, orientation, scale, BSH_BRUSH_TYPE_CUBE);
+    handle = bsh_CreateBrush(position, orientation, scale, BSH_BRUSH_TYPE_CUBE);
+    brush = bsh_GetBrushPointer(handle);
     
     for(uint32_t polygon_index = 0; polygon_index < 6; polygon_index++)
     {        
@@ -92,6 +96,7 @@ struct bsh_brush_t *bsh_CreateCubeBrush(vec3_t *position, mat3_t *orientation, v
         {
             vec3_t_add(&polygon->vertices[vert_index].position, &brush->position, &vertices[vert_index].position);
             polygon->vertices[vert_index].normal = vertices[vert_index].normal;
+            polygon->vertices[vert_index].tex_coords = vertices[vert_index].tex_coords;
         }
         
         polygon->face_normal = polygon->vertices[0].normal;
@@ -109,17 +114,27 @@ struct bsh_brush_t *bsh_CreateCubeBrush(vec3_t *position, mat3_t *orientation, v
         vertices += 4;
     }
     
-    return brush;
+    brush->vertices = r_AllocVerts(36);
+    chunk = r_GetChunkPointer(brush->vertices);
+    
+    brush->count = 36;
+    brush->start = chunk->start / sizeof(struct r_vertex_t);
+    bsh_TriangulatePolygons(handle);
+    
+    return handle;
 }
 
-struct bsh_brush_t *bsh_CreateCylinderBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale, uint32_t vert_count)
+struct bsh_brush_h bsh_CreateCylinderBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale, uint32_t vert_count)
 {
-    return NULL;
+    return BSH_INVALID_BRUSH_HANDLE;
 }
 
-void bsh_DestroyBrush(struct bsh_brush_t *brush)
+void bsh_DestroyBrush(struct bsh_brush_h handle)
 {
     struct bsh_polygon_t *next_polygon;
+    struct bsh_brush_t *brush;
+    
+    brush = bsh_GetBrushPointer(handle);
     
     if(brush)
     {        
@@ -131,44 +146,97 @@ void bsh_DestroyBrush(struct bsh_brush_t *brush)
             brush->polygons = next_polygon;
         }
         
-        if(brush->prev)
-        {
-            brush->prev->next = brush->next;
-        }
-        else
-        {
-            bsh_brushes = brush->next;
-            bsh_brushes->prev = NULL;
-        }
-        
-        if(brush->next)
-        {
-            brush->next->prev = brush->prev;
-        }
-        else
-        {
-            bsh_last_brush = brush->prev;
-            bsh_last_brush->next = NULL;
-        }
-        
-        mem_Free(brush);
+        brush->type = BSH_BRUSH_TYPE_NONE;
+        remove_stack_list_element(&bsh_brushes, handle.index);
     }
+}
+
+struct bsh_brush_t *bsh_GetBrushPointer(struct bsh_brush_h handle)
+{
+    struct bsh_brush_t *brush;
+    brush = get_stack_list_element(&bsh_brushes, handle.index);
+    
+    if(brush && brush->type == BSH_BRUSH_TYPE_NONE)
+    {
+        brush = NULL;
+    }
+    
+    return brush;
 }
 
 void bsh_TranslateBrush(struct bsh_brush_t *brush, vec3_t *translation)
 {
+//    struct bsh_polygon_t *polygon;
+//    polygon = brush->polygons;
+//    
+//    while(polygon)
+//    {
+//        for(uint32_t vert_index = 0; vert_index < polygon->vert_count; vert_index++)
+//        {
+//            vec3_t_add(&polygon->vertices[vert_index].position, &polygon->vertices[vert_index].position, translation);
+//        }
+//        
+//        polygon = polygon->next;
+//    }
+}
+
+void bsh_TriangulatePolygons(struct bsh_brush_h handle)
+{
+    static struct r_vertex_t draw_verts[1024];
+    uint32_t draw_verts_count = 0;
     struct bsh_polygon_t *polygon;
+    struct bsh_brush_t *brush;
+    
+    brush = bsh_GetBrushPointer(handle);
+    
     polygon = brush->polygons;
     
     while(polygon)
     {
-        for(uint32_t vert_index = 0; vert_index < polygon->vert_count; vert_index++)
+        for(uint32_t vert_index = 1; vert_index < polygon->vert_count - 1;)
         {
-            vec3_t_add(&polygon->vertices[vert_index].position, &polygon->vertices[vert_index].position, translation);
+            draw_verts[draw_verts_count].position.x = polygon->vertices[0].position.x;
+            draw_verts[draw_verts_count].position.y = polygon->vertices[0].position.y;
+            draw_verts[draw_verts_count].position.z = polygon->vertices[0].position.z;
+            draw_verts[draw_verts_count].position.w = 1.0;
+            draw_verts[draw_verts_count].normal.x = polygon->vertices[0].normal.x;
+            draw_verts[draw_verts_count].normal.y = polygon->vertices[0].normal.y;
+            draw_verts[draw_verts_count].normal.z = polygon->vertices[0].normal.z;
+            draw_verts[draw_verts_count].normal.w = 0.0;
+            draw_verts[draw_verts_count].tex_coords.x = polygon->vertices[0].tex_coords.x;
+            draw_verts[draw_verts_count].tex_coords.y = polygon->vertices[0].tex_coords.y;
+            draw_verts_count++;
+            
+            draw_verts[draw_verts_count].position.x = polygon->vertices[vert_index].position.x;
+            draw_verts[draw_verts_count].position.y = polygon->vertices[vert_index].position.y;
+            draw_verts[draw_verts_count].position.z = polygon->vertices[vert_index].position.z;
+            draw_verts[draw_verts_count].position.w = 1.0;
+            draw_verts[draw_verts_count].normal.x = polygon->vertices[vert_index].normal.x;
+            draw_verts[draw_verts_count].normal.y = polygon->vertices[vert_index].normal.y;
+            draw_verts[draw_verts_count].normal.z = polygon->vertices[vert_index].normal.z;
+            draw_verts[draw_verts_count].normal.w = 0.0;
+            draw_verts[draw_verts_count].tex_coords.x = polygon->vertices[vert_index].tex_coords.x;
+            draw_verts[draw_verts_count].tex_coords.y = polygon->vertices[vert_index].tex_coords.y;
+            draw_verts_count++;
+            vert_index++; 
+            
+            draw_verts[draw_verts_count].position.x = polygon->vertices[vert_index].position.x;
+            draw_verts[draw_verts_count].position.y = polygon->vertices[vert_index].position.y;
+            draw_verts[draw_verts_count].position.z = polygon->vertices[vert_index].position.z;
+            draw_verts[draw_verts_count].position.w = 1.0;
+            draw_verts[draw_verts_count].normal.x = polygon->vertices[vert_index].normal.x;
+            draw_verts[draw_verts_count].normal.y = polygon->vertices[vert_index].normal.y;
+            draw_verts[draw_verts_count].normal.z = polygon->vertices[vert_index].normal.z;
+            draw_verts[draw_verts_count].normal.w = 0.0;
+            draw_verts[draw_verts_count].tex_coords.x = polygon->vertices[vert_index].tex_coords.x;
+            draw_verts[draw_verts_count].tex_coords.y = polygon->vertices[vert_index].tex_coords.y;
+            draw_verts_count++;
         }
         
         polygon = polygon->next;
     }
+    
+    r_FillVertsChunk(brush->vertices, draw_verts, draw_verts_count);
 }
 
 
@@ -614,9 +682,9 @@ struct bsh_bsp_t *bsh_IncrementalSetOp(struct bsh_bsp_t *bsp, struct bsh_polygon
     return bsh_IncrementalSetOpRecursive(bsp, polygons_copy, op);
 }
 
-struct bsh_brush_t *bsh_GetBrushList()
+struct stack_list_t *bsh_GetBrushList()
 {
-    return bsh_brushes;
+    return &bsh_brushes;
 }
 
 

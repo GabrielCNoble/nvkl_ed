@@ -47,8 +47,8 @@ enum ED_OBJECT_TYPES
 
 union ed_object_ref_t
 {
-    struct bsh_brush_t *brush;
-    union ent_entity_h entity;
+    struct bsh_brush_h brush;
+    struct ent_entity_h entity;
 };
 
 struct ed_object_t
@@ -117,10 +117,26 @@ struct ed_editor_window_t
 struct ed_editor_viewport_t
 {
     struct ed_editor_window_t base;
+    struct r_framebuffer_h framebuffer;
     uint32_t width;
     uint32_t height;
+    int32_t x;
+    int32_t y;
     float view_pitch;
     float view_yaw;
+    mat4_t view_matrix;
+    mat4_t inv_view_matrix;
+    mat4_t projection_matrix;
+};
+
+enum ED_PICKER_OBJECT_ID
+{
+    ED_PICKER_OBJECT_ID_X_AXIS = 1,
+    ED_PICKER_OBJECT_ID_Y_AXIS = 1 << 1,
+    ED_PICKER_OBJECT_ID_Z_AXIS = 1 << 2,
+    ED_PICKER_OBJECT_ID_LAST = ED_PICKER_OBJECT_ID_X_AXIS |
+                               ED_PICKER_OBJECT_ID_Y_AXIS |
+                               ED_PICKER_OBJECT_ID_Z_AXIS
 };
 
 
@@ -135,19 +151,17 @@ void ed_UpdateLayout();
 
 void ed_UpdateWindows();
 
-//void ed_ShowGizmo(uint32_t type, mat4_t *transform, mat4_t *delta_transform);
-
 void ed_ApplyTransform(mat4_t *apply_to, uint32_t apply_to_count, mat4_t *to_apply, uint32_t transform_type, uint32_t transform_mode);
 
-struct ed_object_h ed_CreateObject(mat4_t *transform, uint32_t type, uint32_t start, uint32_t count, union ed_object_ref_t object);
+struct ed_object_h ed_CreateObject(mat4_t *transform, uint32_t type, uint32_t start, uint32_t count, union ed_object_ref_t object_ref);
 
 void ed_DestroyObject(struct ed_object_h handle);
 
-//void ed_TranslateObject(struct ed_object_t *object, vec3_t *translation);
+struct ed_object_h ed_CreateBrushObject(vec3_t *position);
 
-//void ed_RotateObject(struct ed_object_t *object, vec3_t *)
+struct ed_object_t *ed_GetObjectPointer(struct ed_object_h handle);
 
-void ed_DrawObjects();
+void ed_DrawLayout();
 
 /*
 =============================================================
@@ -161,9 +175,13 @@ void ed_WorldContextInput(void *context_data, struct ed_editor_window_t *window)
 
 void ed_WorldContextUpdate(void *context_data, struct ed_editor_window_t *window);
 
+void ed_WorldContextDrawObjects(void *context_data, struct ed_editor_window_t *window);
+
 void ed_WorldContextWorldSubContextInput(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
 
 void ed_WorldContextWorldSubContextUpdate(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
+
+struct ed_object_h ed_WorldContextPickObject(struct ed_editor_viewport_t *viewport);
 
 
 #endif // ED_H
