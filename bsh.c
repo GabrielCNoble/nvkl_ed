@@ -94,7 +94,8 @@ struct bsh_brush_h bsh_CreateCubeBrush(vec3_t *position, mat3_t *orientation, ve
         
         for(uint32_t vert_index = 0; vert_index < polygon->vert_count; vert_index++)
         {
-            vec3_t_add(&polygon->vertices[vert_index].position, &brush->position, &vertices[vert_index].position);
+//            vec3_t_add(&polygon->vertices[vert_index].position, &brush->position, &vertices[vert_index].position);
+            polygon->vertices[vert_index].position = vertices[vert_index].position;
             polygon->vertices[vert_index].normal = vertices[vert_index].normal;
             polygon->vertices[vert_index].tex_coords = vertices[vert_index].tex_coords;
         }
@@ -114,8 +115,8 @@ struct bsh_brush_h bsh_CreateCubeBrush(vec3_t *position, mat3_t *orientation, ve
         vertices += 4;
     }
     
-    brush->vertices = r_AllocVerts(36);
-    chunk = r_GetChunkPointer(brush->vertices);
+    brush->draw_vertices = r_AllocVerts(36);
+    chunk = r_GetChunkPointer(brush->draw_vertices);
     
     brush->count = 36;
     brush->start = chunk->start / sizeof(struct r_vertex_t);
@@ -236,7 +237,17 @@ void bsh_TriangulatePolygons(struct bsh_brush_h handle)
         polygon = polygon->next;
     }
     
-    r_FillVertsChunk(brush->vertices, draw_verts, draw_verts_count);
+    brush->vertice_count = draw_verts_count;
+    brush->vertices = mem_Calloc(draw_verts_count, sizeof(vec3_t));
+    
+    for(uint32_t vertice_index = 0; vertice_index < draw_verts_count; vertice_index++)
+    {
+        brush->vertices[vertice_index].x = draw_verts[vertice_index].position.x;
+        brush->vertices[vertice_index].y = draw_verts[vertice_index].position.y;
+        brush->vertices[vertice_index].z = draw_verts[vertice_index].position.z;
+    }
+    
+    r_FillVertsChunk(brush->draw_vertices, draw_verts, draw_verts_count);
 }
 
 

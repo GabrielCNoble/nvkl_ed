@@ -37,8 +37,11 @@ struct bsh_brush_t
     struct bsh_polygon_t *polygons;
     struct bsh_polygon_t *last_polygon;
     
-    struct r_chunk_h vertices;
-    struct r_chunk_h indices;
+    uint32_t vertice_count;
+    vec3_t *vertices;
+    
+    struct r_chunk_h draw_vertices;
+    struct r_chunk_h draw_indices;
     uint32_t start;
     uint32_t count;
     

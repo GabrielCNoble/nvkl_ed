@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1596090438 source:c:\users\gabri\documents\compiler\neighbor_editor\ed.c
+1596401580 source:c:\users\gabri\documents\compiler\neighbor_editor\ed.c
 	<stdio.h>
 	"ed.h"
 	"neighbor/r_draw.h"
@@ -11,7 +11,7 @@
 	"neighbor/g.h"
 	"ui_ed.h"
 
-1596087063 c:\users\gabri\documents\compiler\neighbor_editor\ed.h
+1596516140 c:\users\gabri\documents\compiler\neighbor_editor\ed.h
 	"bsh.h"
 	"neighbor/lib/dstuff/ds_list.h"
 	"neighbor/ent.h"
@@ -52,7 +52,7 @@
 	"r_common.h"
 	<stdint.h>
 
-1595752534 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_common.h
+1596347321 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_common.h
 	<stdint.h>
 	"lib/SDL/include/SDL.h"
 	"lib/dstuff/ds_stack_list.h"
@@ -521,10 +521,10 @@
 	<stdint.h>
 	"lib/SDL/include/SDL.h"
 
-1595756538 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.h
+1596347548 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.h
 	"r_common.h"
 
-1595753068 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.h
+1596378814 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.h
 	"r_nvkl.h"
 	"lib/dstuff/ds_matrix.h"
 	"lib/dstuff/ds_list.h"
@@ -765,7 +765,7 @@
 	"lib/dstuff/ds_stack_list.h"
 	"lib/dstuff/ds_dbvh.h"
 
-1596067681 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.c
+1596378849 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.c
 	"r_draw.h"
 	"spr.h"
 	"lib/dstuff/ds_file.h"
@@ -775,7 +775,7 @@
 	<stdio.h>
 	<stddef.h>
 
-1596061465 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.c
+1596348030 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.c
 	"r_nvkl.h"
 	"lib/dstuff/ds_mem.h"
 	"lib/dstuff/ds_path.h"
@@ -810,7 +810,7 @@
 	"lib/dstuff/ds_sprpk.h"
 	"lib/stb/stb_image.h"
 
-1596064123 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ui.c
+1596380602 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ui.c
 	"ui.h"
 	"in.h"
 	"r_draw.h"
@@ -835,20 +835,20 @@
 	<stdint.h>
 	<type_traits>
 
-1596067260 source:c:\users\gabri\documents\compiler\neighbor_editor\bsh.c
+1596353780 source:c:\users\gabri\documents\compiler\neighbor_editor\bsh.c
 	"bsh.h"
 	"neighbor/lib/dstuff/ds_mem.h"
 	"neighbor/r_draw.h"
 	<string.h>
 	<stdlib.h>
 
-1595752859 c:\users\gabri\documents\compiler\neighbor_editor\bsh.h
+1596352898 c:\users\gabri\documents\compiler\neighbor_editor\bsh.h
 	"neighbor/lib/dstuff/ds_matrix.h"
 	"neighbor/lib/dstuff/ds_vector.h"
 	"neighbor/r_common.h"
 	<stdint.h>
 
-1595256879 source:c:\users\gabri\documents\compiler\neighbor_editor\r_ed.c
+1596375866 source:c:\users\gabri\documents\compiler\neighbor_editor\r_ed.c
 	"r_ed.h"
 	"neighbor/r_draw.h"
 
