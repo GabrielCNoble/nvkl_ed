@@ -1,17 +1,16 @@
 # depslib dependency file v1.0
-1596401580 source:c:\users\gabri\documents\compiler\neighbor_editor\ed.c
+1597291731 source:c:\users\gabri\documents\compiler\neighbor_editor\ed.c
 	<stdio.h>
 	"ed.h"
 	"neighbor/r_draw.h"
 	"neighbor/lib/dstuff/ds_mem.h"
 	"neighbor/ui.h"
-	"r_ed.h"
 	"bsh.h"
 	"neighbor/in.h"
 	"neighbor/g.h"
 	"ui_ed.h"
 
-1596516140 c:\users\gabri\documents\compiler\neighbor_editor\ed.h
+1597221152 c:\users\gabri\documents\compiler\neighbor_editor\ed.h
 	"bsh.h"
 	"neighbor/lib/dstuff/ds_list.h"
 	"neighbor/ent.h"
@@ -42,10 +41,10 @@
 	"lib/dstuff/ds_matrix.h"
 	"mdl.h"
 
-1594247966 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_vector.h
+1597126581 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_vector.h
 	<math.h>
 
-1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_matrix.h
+1597017062 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_matrix.h
 	"ds_vector.h"
 
 1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\mdl.h
@@ -631,7 +630,7 @@
 	"ds_list.h"
 	"ds_vector.h"
 
-1594893462 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\in.c
+1596699373 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\in.c
 	"in.h"
 	"lib/SDL/include/SDL.h"
 	<stdio.h>
@@ -765,7 +764,7 @@
 	"lib/dstuff/ds_stack_list.h"
 	"lib/dstuff/ds_dbvh.h"
 
-1596378849 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.c
+1597018639 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.c
 	"r_draw.h"
 	"spr.h"
 	"lib/dstuff/ds_file.h"
@@ -810,7 +809,7 @@
 	"lib/dstuff/ds_sprpk.h"
 	"lib/stb/stb_image.h"
 
-1596380602 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ui.c
+1596698304 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ui.c
 	"ui.h"
 	"in.h"
 	"r_draw.h"
@@ -835,14 +834,14 @@
 	<stdint.h>
 	<type_traits>
 
-1596353780 source:c:\users\gabri\documents\compiler\neighbor_editor\bsh.c
+1597222010 source:c:\users\gabri\documents\compiler\neighbor_editor\bsh.c
 	"bsh.h"
 	"neighbor/lib/dstuff/ds_mem.h"
 	"neighbor/r_draw.h"
 	<string.h>
 	<stdlib.h>
 
-1596352898 c:\users\gabri\documents\compiler\neighbor_editor\bsh.h
+1597221948 c:\users\gabri\documents\compiler\neighbor_editor\bsh.h
 	"neighbor/lib/dstuff/ds_matrix.h"
 	"neighbor/lib/dstuff/ds_vector.h"
 	"neighbor/r_common.h"

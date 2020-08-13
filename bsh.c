@@ -165,20 +165,15 @@ struct bsh_brush_t *bsh_GetBrushPointer(struct bsh_brush_h handle)
     return brush;
 }
 
-void bsh_TranslateBrush(struct bsh_brush_t *brush, vec3_t *translation)
+void bsh_TranslateBrush(struct bsh_brush_h handle, vec3_t *translation)
 {
-//    struct bsh_polygon_t *polygon;
-//    polygon = brush->polygons;
-//    
-//    while(polygon)
-//    {
-//        for(uint32_t vert_index = 0; vert_index < polygon->vert_count; vert_index++)
-//        {
-//            vec3_t_add(&polygon->vertices[vert_index].position, &polygon->vertices[vert_index].position, translation);
-//        }
-//        
-//        polygon = polygon->next;
-//    }
+    struct bsh_brush_t *brush;
+    brush = bsh_GetBrushPointer(handle);
+    
+    if(brush)
+    {
+        vec3_t_add(&brush->position, &brush->position, translation);
+    }
 }
 
 void bsh_TriangulatePolygons(struct bsh_brush_h handle)

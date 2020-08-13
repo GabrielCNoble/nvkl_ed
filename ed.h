@@ -27,7 +27,9 @@ enum ED_TRANSFORM_TYPE
 {
     ED_TRANSFORM_TYPE_TRANSLATION = 0,
     ED_TRANSFORM_TYPE_ROTATION,
-    ED_TRANSFORM_TYPE_SCALE
+    ED_TRANSFORM_TYPE_SCALE,
+    ED_TRANSFORM_TYPE_BOUNDS,
+    ED_TRANSFORM_TYPE_LAST
 };
 
 enum ED_TRANSFORM_MODE
@@ -85,13 +87,39 @@ enum ED_WORLD_CONTEXT_SUB_CONTEXT
     ED_WORLD_CONTEXT_SUB_CONTEXT_LAST
 };
 
+struct ed_manipulator_component_t
+{
+    uint32_t id;
+    uint32_t index_start;
+    uint32_t vertex_start;
+    uint32_t count;
+};
+
+struct ed_manipulator_t
+{
+    uint32_t component_count;
+    struct ed_manipulator_component_t *components;
+};
+
+struct ed_manipulator_state_t
+{
+    mat4_t transform;
+    uint32_t picked_axis;
+    uint32_t transform_mode;
+    uint32_t transform_type;
+    uint32_t just_picked;
+};
+
 struct ed_world_context_sub_context_t
 {
     struct list_t selections;
     struct list_t objects;
-    mat4_t manipulator_transform;
-    uint32_t transform_mode;
-    uint32_t transform_type;
+    struct ed_manipulator_state_t manipulator_state;
+//    uint32_t manipulator_axis;
+//    mat4_t manipulator_transform;
+    vec3_t pick_offset;
+//    uint32_t transform_mode;
+//    uint32_t transform_type;
     void (*input_function)(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
     void (*update_function)(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
 };
@@ -119,12 +147,12 @@ struct ed_editor_viewport_t
 {
     struct ed_editor_window_t base;
     struct r_framebuffer_h framebuffer;
-    uint32_t next_width;
-    uint32_t next_height;
     uint32_t width;
     uint32_t height;
     int32_t x;
     int32_t y;
+    int32_t mouse_x;
+    int32_t mouse_y;
     float view_pitch;
     float view_yaw;
     mat4_t view_matrix;
@@ -141,8 +169,6 @@ enum ED_PICKER_OBJECT_ID
     ED_PICKER_OBJECT_ID_LAST = ED_PICKER_OBJECT_ID_ALL_AXIS + 1
 };
 
-
-
 void ed_Init();
 
 void ed_Shutdown();
@@ -152,8 +178,6 @@ void ed_Main(float delta_time);
 void ed_UpdateLayout();
 
 void ed_UpdateWindows();
-
-void ed_ApplyTransform(mat4_t *apply_to, uint32_t apply_to_count, mat4_t *to_apply, uint32_t transform_type, uint32_t transform_mode);
 
 void ed_DrawLayout();
 
@@ -187,9 +211,15 @@ union r_command_buffer_h ed_WorldContextBeginPicking(struct ed_editor_viewport_t
 
 struct ed_object_h ed_WorldContextEndPicking(union r_command_buffer_h command_buffer, struct ed_editor_viewport_t *viewport);
 
-struct ed_object_h ed_WorldContextPickManipulator(mat4_t *manipulator_transform, struct ed_editor_viewport_t *viewport);
+struct ed_object_h ed_WorldContextPickManipulator(mat4_t *manipulator_transform, uint32_t transform_type, struct ed_editor_viewport_t *viewport);
 
 struct ed_object_h ed_WorldContextPickObject(struct list_t *objects, struct ed_editor_viewport_t *viewport);
+
+void ed_WorldContextManipulatorDrawTransform(mat4_t *draw_transform, mat4_t *transform, struct ed_editor_viewport_t *viewport);
+
+void ed_WorldContextManipulatorPlaneMousePos(struct ed_manipulator_state_t *manipulator_state, struct ed_editor_viewport_t *viewport, vec3_t *mouse_plane_pos, vec3_t *mouse_plane_normal);
+
+void ed_WorldContextApplyTransform(mat4_t *transform, struct list_t *objects, uint32_t transform_type, uint32_t transform_mode);
 
 
 #endif // ED_H

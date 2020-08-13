@@ -114,7 +114,7 @@ void bsh_DestroyBrush(struct bsh_brush_h handle);
 
 struct bsh_brush_t *bsh_GetBrushPointer(struct bsh_brush_h brush);
 
-//void bsh_TranslateBrush(struct bsh_brush_t *brush, vec3_t *translation);
+void bsh_TranslateBrush(struct bsh_brush_h handle, vec3_t *translation);
 
 //void bsh_SetBrushPosition(struct bsh_brush_t *brush, vec3_t *position);
 

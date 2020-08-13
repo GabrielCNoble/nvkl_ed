@@ -3,7 +3,6 @@
 #include "neighbor/r_draw.h"
 #include "neighbor/lib/dstuff/ds_mem.h"
 #include "neighbor/ui.h"
-#include "r_ed.h"
 #include "bsh.h"
 #include "neighbor/in.h"
 #include "neighbor/g.h"
@@ -35,6 +34,7 @@ struct stack_list_t ed_objects;
 struct r_framebuffer_h ed_framebuffer;
 
 extern struct r_heap_h r_vertex_heap;
+extern struct r_heap_h r_index_heap;
 extern VkQueue r_draw_queue;
 extern VkFence r_draw_fence;
 
@@ -49,28 +49,51 @@ struct r_i_vertex_t *ed_center_grid;
 
 struct r_i_vertex_t *ed_translation_manipulator_verts;
 uint32_t *ed_translation_manipulator_indices;
+struct r_chunk_h ed_translation_manipulator_vert_chunk;
+struct r_chunk_h ed_translation_manipulator_index_chunk;
 #define ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT 13
 #define ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT 60
 #define ED_TRANSLATION_MANIPULATOR_PLANE_VERT_COUNT 4
 #define ED_TRANSLATION_MANIPULATOR_PLANE_INDICE_COUNT 6
 #define ED_TRANSLATION_MANIPULATOR_VERT_COUNT ((ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT + ED_TRANSLATION_MANIPULATOR_PLANE_VERT_COUNT) * 3)
-#define ED_TRANSLATION_MANIPULATOR_INDICE_COUNT ((ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + ED_TRANSLATION_MANIPULATOR_PLANE_INDICE_COUNT) * 3)
-
+#define ED_TRANSLATION_MANIPULATOR_INDICE_COUNT (ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + ED_TRANSLATION_MANIPULATOR_PLANE_INDICE_COUNT)
 #define ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT (ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT + ED_TRANSLATION_MANIPULATOR_PLANE_VERT_COUNT)
-#define ED_TRANSLATION_MANIPULATOR_X_AXIS_INDICE_START 0
-#define ED_TRANSLATION_MANIPULATOR_Y_AXIS_INDICE_START 60
-#define ED_TRANSLATION_MANIPULATOR_Z_AXIS_INDICE_START 120
-
-#define ED_TRANSLATION_MANIPULATOR_X_PLANE_INDICE_START 180
-#define ED_TRANSLATION_MANIPULATOR_Y_PLANE_INDICE_START 186
-#define ED_TRANSLATION_MANIPULATOR_Z_PLANE_INDICE_START 192
-
 
 
 struct r_i_vertex_t *ed_rotation_manipulator;
+
+
 struct r_i_vertex_t *ed_scale_manipulator;
 
 void (*ed_TranslateObjectFunction[ED_OBJECT_TYPE_LAST])(struct ed_object_t *object, vec3_t *translation) = {NULL};
+
+struct ed_manipulator_t ed_manipulators[ED_TRANSFORM_TYPE_LAST] = {
+    [ED_TRANSFORM_TYPE_TRANSLATION] = {
+        .component_count = 3,
+        .components = (struct ed_manipulator_component_t []){
+            {
+                .vertex_start = 0, 
+                .index_start = 0, 
+                .count = ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT, 
+                .id = ED_PICKER_OBJECT_ID_X_AXIS,
+            },
+            
+            {
+                .vertex_start = ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT, 
+                .index_start = 0, 
+                .count = ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT, 
+                .id = ED_PICKER_OBJECT_ID_Y_AXIS,
+            },
+            
+            {
+                .vertex_start = ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2, 
+                .index_start = 0, 
+                .count = ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT, 
+                .id = ED_PICKER_OBJECT_ID_Z_AXIS,
+            },
+        }
+    }
+};
 
 void ed_Init()
 {
@@ -79,6 +102,7 @@ void ed_Init()
     mat3_t brush_orientation;
     struct ed_editor_context_t *context;
     uint32_t edges[2];
+    char window_name[512];
     
     in_RegisterKey(SDL_SCANCODE_ESCAPE);
     in_RegisterKey(SDL_SCANCODE_SPACE);
@@ -105,6 +129,9 @@ void ed_Init()
     sub_context->update_function = ed_WorldContextWorldSubContextUpdate;
     sub_context->selections = create_list(sizeof(struct ed_object_h), 512);
     sub_context->objects = create_list(sizeof(struct ed_object_h), 512);
+    mat4_t_identity(&sub_context->manipulator_state.transform);
+    sub_context->manipulator_state.picked_axis = 0;
+    
     data->active_sub_context = sub_context;
     
     
@@ -118,8 +145,8 @@ void ed_Init()
     viewport->base.type = ED_EDITOR_WINDOW_TYPE_VIEWPORT;
     viewport->width = 640;
     viewport->height = 480;
-    viewport->next_width = 640;
-    viewport->next_height = 480;
+//    viewport->next_width = 640;
+//    viewport->next_height = 480;
     viewport->view_pitch = 0.0;
     viewport->view_yaw = 0.0;
     viewport->framebuffer = r_CreateDrawableFramebuffer(viewport->width, viewport->height);
@@ -227,6 +254,9 @@ void ed_Init()
                         },
                         .input_assembly_state = &(VkPipelineInputAssemblyStateCreateInfo){
                             .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+                        },
+                        .rasterization_state = &(VkPipelineRasterizationStateCreateInfo) {
+                            .cullMode = VK_CULL_MODE_NONE,
                         }
                     }
                 }
@@ -458,69 +488,51 @@ void ed_Init()
     
     
     /* planes */
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_X_PLANE_INDICE_START    ] = 13;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_X_PLANE_INDICE_START + 1] = 14;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_X_PLANE_INDICE_START + 2] = 15;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_X_PLANE_INDICE_START + 3] = 15;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_X_PLANE_INDICE_START + 4] = 16;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_X_PLANE_INDICE_START + 5] = 13;
-    
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_Y_PLANE_INDICE_START    ] = 13 + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_Y_PLANE_INDICE_START + 1] = 14 + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_Y_PLANE_INDICE_START + 2] = 15 + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_Y_PLANE_INDICE_START + 3] = 15 + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_Y_PLANE_INDICE_START + 4] = 16 + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_Y_PLANE_INDICE_START + 5] = 13 + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT;
-    
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_Z_PLANE_INDICE_START    ] = 13 + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_Z_PLANE_INDICE_START + 1] = 14 + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_Z_PLANE_INDICE_START + 2] = 15 + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_Z_PLANE_INDICE_START + 3] = 15 + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_Z_PLANE_INDICE_START + 4] = 16 + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_Z_PLANE_INDICE_START + 5] = 13 + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2;
+    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT    ] = 13;
+    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 1] = 14;
+    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 2] = 15;
+    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 3] = 15;
+    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 4] = 16;
+    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 5] = 13;
 
-    
-    
     /* Y axis */
     for(uint32_t index = 0; index < ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT; index++)
     {
         struct r_i_vertex_t *vert = ed_translation_manipulator_verts + index;
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT].position.x = vert->position.z;
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT].position.y = vert->position.x;
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT].position.z = vert->position.y;
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT].position.w = 1.0;
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT].color = vec4_t_c(0.0, 1.0, 0.0, 1.0);
-    }
-    
-    for(uint32_t index = 0; index < ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT; index++)
-    {
-        ed_translation_manipulator_indices[index + ED_TRANSLATION_MANIPULATOR_Y_AXIS_INDICE_START] = 
-            ed_translation_manipulator_indices[index] + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT;
+        uint32_t offset = index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT;
+        ed_translation_manipulator_verts[offset].position.x = vert->position.z;
+        ed_translation_manipulator_verts[offset].position.y = vert->position.x;
+        ed_translation_manipulator_verts[offset].position.z = vert->position.y;
+        ed_translation_manipulator_verts[offset].position.w = 1.0;
+        ed_translation_manipulator_verts[offset].color = vec4_t_c(0.0, 1.0, 0.0, 1.0);
     }
     
     /* Z axis */
     for(uint32_t index = 0; index < ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT; index++)
     {
         struct r_i_vertex_t *vert = ed_translation_manipulator_verts + index;
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2].position.y = vert->position.z;
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2].position.x = vert->position.y;
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2].position.z = vert->position.x;
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2].position.w = 1.0;
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);
+        uint32_t offset = index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2;
+        ed_translation_manipulator_verts[offset].position.y = vert->position.z;
+        ed_translation_manipulator_verts[offset].position.x = vert->position.y;
+        ed_translation_manipulator_verts[offset].position.z = vert->position.x;
+        ed_translation_manipulator_verts[offset].position.w = 1.0;
+        ed_translation_manipulator_verts[offset].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);
     }
     
-    for(uint32_t index = 0; index < ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT; index++)
-    {
-        ed_translation_manipulator_indices[index + ED_TRANSLATION_MANIPULATOR_Z_AXIS_INDICE_START] = 
-            ed_translation_manipulator_indices[index] + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2;
-    }
+//    for(uint32_t index = 0; index < ED_TRANSLATION_MANIPULATOR_PLANE_VERT_COUNT; index++)
+//    {
+//        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT].color = vec4_t_c(0.0, 1.0, 0.0, 1.0);
+//        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT + ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);
+//        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2 + ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
+//    }
     
-    for(uint32_t index = 0; index < ED_TRANSLATION_MANIPULATOR_PLANE_VERT_COUNT; index++)
-    {
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT].color = vec4_t_c(0.0, 1.0, 0.0, 1.0);
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT + ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);
-        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2 + ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    }
+    uint32_t size = ED_TRANSLATION_MANIPULATOR_VERT_COUNT * sizeof(struct r_i_vertex_t);
+    ed_translation_manipulator_vert_chunk = r_AllocChunk(r_vertex_heap, size, sizeof(struct r_i_vertex_t));
+    r_FillBufferChunk(ed_translation_manipulator_vert_chunk, ed_translation_manipulator_verts, size, 0);
+    
+    size = ED_TRANSLATION_MANIPULATOR_INDICE_COUNT * sizeof(uint32_t);
+    ed_translation_manipulator_index_chunk = r_AllocChunk(r_index_heap, size, sizeof(uint32_t));
+    r_FillBufferChunk(ed_translation_manipulator_index_chunk, ed_translation_manipulator_indices, size, 0);
 }
 
 void ed_Shutdown()
@@ -618,6 +630,10 @@ void ed_DrawLayout()
     window_flags |= ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBringToFrontOnFocus; 
     igBegin("Main", NULL, window_flags);
     igPopStyleVar(2);
+    int32_t mouse_x;
+    int32_t mouse_y;
+    
+    struct ed_editor_window_t *active_window = NULL;
     
     char window_name[512];
     
@@ -643,10 +659,7 @@ void ed_DrawLayout()
     ImGuiContext *context = igGetCurrentContext();
     struct ed_editor_window_t *window = ed_windows;
     
-    if(!(in_GetMouseState(IN_MOUSE_BUTTON_MIDDLE) & IN_INPUT_STATE_PRESSED))
-    {
-        ed_active_window = NULL;
-    }
+    in_GetMousePos(&mouse_x, &mouse_y);
     
     while(window)
     {
@@ -667,14 +680,28 @@ void ed_DrawLayout()
 //                igSetNextWindowSize((ImVec2){200.0, 200.0}, 0);
                 struct ed_editor_viewport_t *viewport = (struct ed_editor_viewport_t *)window;
                 igSetNextWindowSize((ImVec2){(float)viewport->width, (float)viewport->height}, ImGuiCond_Once);
-                if(igBegin(window_name, NULL, ImGuiWindowFlags_NoScrollbar))
+                
+                uint32_t window_flags = ImGuiWindowFlags_NoScrollbar;
+                
+                if(ed_active_window == window)
+                {
+                    window_flags |= ImGuiWindowFlags_NoMove;
+                }
+                
+    
+                if(igBegin(window_name, NULL, window_flags))
                 {
                     struct r_framebuffer_t *framebuffer = r_GetFramebufferPointer(viewport->framebuffer);
                     struct r_texture_t *texture = r_GetTexturePointer(framebuffer->textures[0]);
                     ImTextureID texture_id = (void *)framebuffer->textures[0].index;
                     igImage(texture_id, (ImVec2){(float) viewport->width, (float) viewport->height}, 
                             (ImVec2){0.0, 0.0}, (ImVec2){1.0, 1.0}, (ImVec4){1.0, 1.0, 1.0, 1.0}, (ImVec4){0.0, 0.0, 0.0, 0.0});
-                            
+                    
+                    if(igIsItemHovered(0))
+                    {
+                        active_window = window;
+                    }
+                    
                     ImVec2 content_min;
                     ImVec2 content_max;
                     igGetWindowContentRegionMax(&content_max);
@@ -694,11 +721,8 @@ void ed_DrawLayout()
                     
                     viewport->x = position.x;
                     viewport->y = position.y;
-                    
-                    if(igIsItemHovered(0) && !ed_active_window)
-                    {
-                        ed_active_window = window;
-                    }
+                    viewport->mouse_x = mouse_x - viewport->x;
+                    viewport->mouse_y = mouse_y - viewport->y;
                 }
                 igEnd();
             }
@@ -709,6 +733,8 @@ void ed_DrawLayout()
     }
     
     igEnd();
+    
+    ed_active_window = active_window;
 } 
 
 /*
@@ -922,33 +948,16 @@ void ed_WorldContextUpdate(void *context_data, struct ed_editor_window_t *window
         draw_state.pipeline_state.depth_state.test_enable = VK_FALSE;
         r_i_SetDrawState(&draw_state);
         
-        struct ed_object_h *handle = get_list_element(&world_context_data->active_sub_context->selections, 0);
-        struct ed_object_t *object = ed_WorldContextGetObjectPointer(*handle);
+        mat4_t draw_transform;
+        ed_WorldContextManipulatorDrawTransform(&draw_transform, &world_context_data->active_sub_context->manipulator_state.transform, viewport);
         
-        vec3_t obj_pos;
-        vec3_t view_pos;
-        vec3_t dir;
-        
-        obj_pos.x = object->transform.rows[3].x;
-        obj_pos.y = object->transform.rows[3].y;
-        obj_pos.z = object->transform.rows[3].z;
-        
-        view_pos.x = viewport->view_matrix.rows[3].x;
-        view_pos.y = viewport->view_matrix.rows[3].y;
-        view_pos.z = viewport->view_matrix.rows[3].z;
-        
-        vec3_t_sub(&dir, &view_pos, &obj_pos);
-        float scale = vec3_t_length(&dir) * 0.1;
-        
-        mat4_t transform = object->transform;
-        transform.rows[0].x *= scale;
-        transform.rows[1].y *= scale;
-        transform.rows[2].z *= scale;
-        
-        
-        
-        r_i_DrawImmediate(ed_translation_manipulator_verts, ED_TRANSLATION_MANIPULATOR_VERT_COUNT,
-                        ed_translation_manipulator_indices, ED_TRANSLATION_MANIPULATOR_INDICE_COUNT, &transform);
+        struct ed_manipulator_t *manipulator = ed_manipulators + ED_TRANSFORM_TYPE_TRANSLATION;
+        for(uint32_t component_index = 0; component_index < manipulator->component_count; component_index++)
+        {
+            struct ed_manipulator_component_t *component = manipulator->components + component_index;
+            r_i_DrawImmediate(ed_translation_manipulator_verts + component->vertex_start, ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT,
+                              ed_translation_manipulator_indices, component->count, &draw_transform);
+        }
     }
 
     r_i_EndSubmission();
@@ -963,23 +972,28 @@ void ed_WorldContextWorldSubContextInput(struct ed_world_context_sub_context_t *
     uint32_t prev_index = 0xffffffff;
     uint32_t shift_pressed = in_GetKeyState(SDL_SCANCODE_LSHIFT) & IN_INPUT_STATE_PRESSED;
     
-    if(in_GetKeyState(SDL_SCANCODE_A) & IN_INPUT_STATE_JUST_PRESSED && shift_pressed)
-    {
-        igSetNextWindowPos((ImVec2){300.0, 300.0}, 0, (ImVec2){0.0, 0.0});
-        igOpenPopup("AddToWorldMenu", 0);
-    }
+//    if(in_GetKeyState(SDL_SCANCODE_A) & IN_INPUT_STATE_JUST_PRESSED && shift_pressed)
+//    {
+//        igSetNextWindowPos((ImVec2){300.0, 300.0}, 0, (ImVec2){0.0, 0.0});
+//        igOpenPopup("AddToWorldMenu", 0);
+//    }
     
-    else if(in_GetMouseState(IN_MOUSE_BUTTON_LEFT) & IN_INPUT_STATE_JUST_PRESSED)
+    if(in_GetMouseState(IN_MOUSE_BUTTON_LEFT) & IN_INPUT_STATE_JUST_PRESSED)
     {
-        picked = ed_WorldContextPickObject(&sub_context->objects, viewport);
+        mat4_t transform;
+        mat4_t_identity(&transform);
+        picked = ed_WorldContextPickManipulator(&sub_context->manipulator_state.transform, sub_context->manipulator_state.transform_type, viewport);
         
-        if(picked.index)
+        if(picked.index && picked.index < ED_PICKER_OBJECT_ID_LAST)
         {
-            if(picked.index < ED_PICKER_OBJECT_ID_LAST)
-            {
-                
-            }
-            else
+            sub_context->manipulator_state.picked_axis = picked.index;
+            sub_context->manipulator_state.just_picked = 1;
+        }
+        else
+        {
+            picked = ed_WorldContextPickObject(&sub_context->objects, viewport);
+            
+            if(picked.index)
             {
                 for(uint32_t object_index = 0; object_index < sub_context->selections.cursor; object_index++)
                 {
@@ -1078,14 +1092,122 @@ void ed_WorldContextWorldSubContextInput(struct ed_world_context_sub_context_t *
                 }
             }
         }
+        
+    }
+    else
+    {
+        if(in_GetMouseState(IN_MOUSE_BUTTON_LEFT) & IN_INPUT_STATE_PRESSED && sub_context->manipulator_state.picked_axis)
+        {
+            vec3_t axis_clamp;
+            vec3_t manipulator_pos = vec3_t_c_vec4_t(&sub_context->manipulator_state.transform.rows[3]);
+            vec3_t plane_normal;
+            vec3_t plane_point;
+            vec3_t camera_pos = vec3_t_c_vec4_t(&viewport->view_matrix.rows[3]);
+            vec3_t camera_plane_vec;
+            vec3_t drag_delta;
+            
+            switch(sub_context->manipulator_state.picked_axis)
+            {
+                case ED_PICKER_OBJECT_ID_X_AXIS:
+                    plane_normal = vec3_t_c(1.0, 0.0, 0.0);
+                break;
+                
+                case ED_PICKER_OBJECT_ID_Y_AXIS:
+                    plane_normal = vec3_t_c(0.0, 1.0, 0.0);
+                break;
+                
+                case ED_PICKER_OBJECT_ID_Z_AXIS:
+                    plane_normal = vec3_t_c(0.0, 0.0, 1.0);
+                break;
+            }
+            
+            axis_clamp = plane_normal;
+
+            
+            vec3_t_sub(&camera_plane_vec, &manipulator_pos, &camera_pos);
+            float dist = vec3_t_dot(&camera_plane_vec, &plane_normal);
+            vec3_t_fmadd(&plane_point, &manipulator_pos, &plane_normal, -dist);
+            vec3_t_sub(&plane_normal, &camera_pos, &plane_point);
+            vec3_t_normalize(&plane_normal, &plane_normal);
+            
+            float fovy = 0.68;
+            float aspect = (float)viewport->width / (float)viewport->height;
+            float top = tanf(fovy) * 0.1;
+            float right = top * aspect;
+            
+            vec3_t right_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[0]);
+            vec3_t up_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[1]);
+            vec3_t forward_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[2]);
+            vec3_t mouse_vec = vec3_t_c(0.0, 0.0, 0.0);
+
+            float mouse_x = ((float)viewport->mouse_x / (float)viewport->width) * 2.0 - 1.0;
+            float mouse_y = 1.0 - ((float)viewport->mouse_y / (float)viewport->height) * 2.0;
+            
+            vec3_t_mul(&right_vec, &right_vec, right * mouse_x);
+            vec3_t_mul(&up_vec, &up_vec, top * mouse_y);
+            vec3_t_mul(&forward_vec, &forward_vec, -0.1);
+            
+            vec3_t_add(&mouse_vec, &right_vec, &up_vec);
+            vec3_t_add(&mouse_vec, &mouse_vec, &forward_vec);
+            vec3_t_normalize(&mouse_vec, &mouse_vec);
+            
+            float d = vec3_t_dot(&mouse_vec, &plane_normal);
+            float t = 0.0;
+            
+            if(d)
+            {
+                t = vec3_t_dot(&camera_plane_vec, &plane_normal) / d;                
+            }
+            
+            vec3_t_fmadd(&plane_point, &camera_pos, &mouse_vec, t);
+            
+            if(sub_context->manipulator_state.just_picked)
+            {
+                vec3_t_sub(&sub_context->pick_offset, &manipulator_pos, &plane_point);
+            }
+            
+            sub_context->manipulator_state.just_picked = 0;
+            vec3_t_add(&plane_point, &plane_point, &sub_context->pick_offset);
+            vec3_t_sub(&drag_delta, &plane_point, &manipulator_pos);
+            drag_delta.x *= axis_clamp.x;
+            drag_delta.y *= axis_clamp.y;
+            drag_delta.z *= axis_clamp.z;
+            
+            mat4_t transform;
+            mat4_t_identity(&transform);
+            transform.rows[3] = vec4_t_c(drag_delta.x, drag_delta.y, drag_delta.z, 1.0);
+            
+            ed_WorldContextApplyTransform(&transform, &sub_context->selections, ED_TRANSFORM_TYPE_TRANSLATION, ED_TRANSFORM_MODE_WORLD);
+        }
+        else
+        {
+            sub_context->manipulator_state.picked_axis = 0;
+        }
     }
     
-    if(igBeginPopup("AddToWorldMenu", 0))
+    if(sub_context->selections.cursor)
     {
-        igMenuItemBool("BALLS", NULL, 0, 1);
-        igMenuItemBool("SHIT", NULL, 0, 1);
-        igEndPopup();
+        sub_context->manipulator_state.transform.rows[3] = vec4_t_c(0.0, 0.0, 0.0, 0.0);
+    
+        for(uint32_t object_index = 0; object_index < sub_context->selections.cursor; object_index++)
+        {
+            struct ed_object_h handle = *(struct ed_object_h *)get_list_element(&sub_context->selections, object_index);
+            struct ed_object_t *object = ed_WorldContextGetObjectPointer(handle);
+            vec4_t_add(&sub_context->manipulator_state.transform.rows[3], &sub_context->manipulator_state.transform.rows[3], &object->transform.rows[3]);
+        }
+        
+        sub_context->manipulator_state.transform.rows[3].x /= (float)sub_context->selections.cursor;
+        sub_context->manipulator_state.transform.rows[3].y /= (float)sub_context->selections.cursor;
+        sub_context->manipulator_state.transform.rows[3].z /= (float)sub_context->selections.cursor;
+        sub_context->manipulator_state.transform.rows[3].w = 1.0;
     }
+    
+//    if(igBeginPopup("AddToWorldMenu", 0))
+//    {
+//        igMenuItemBool("BALLS", NULL, 0, 1);
+//        igMenuItemBool("SHIT", NULL, 0, 1);
+//        igEndPopup();
+//    }
 }
 
 void ed_WorldContextWorldSubContextUpdate(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport)
@@ -1166,24 +1288,10 @@ union r_command_buffer_h ed_WorldContextBeginPicking(struct ed_editor_viewport_t
     struct r_render_pass_t *render_pass;
     struct r_pipeline_t *pipeline;
     struct r_buffer_heap_t *vertex_heap;
+    struct r_buffer_heap_t *index_heap;
     struct r_framebuffer_t *framebuffer;
     struct r_framebuffer_description_t *framebuffer_description;
     struct r_render_pass_begin_info_t begin_info = {};
-//    mat4_t model_view_projection_matrix;
-//    mat4_t view_projection_matrix;
-    
-//    struct
-//    {
-//        mat4_t model_view_projection_matrix;
-//        uint32_t object_index;
-//    }push_constant;
-    
-//    in_GetMousePos(&mouse_x, &mouse_y);
-
-//    mouse_x -= viewport->x;
-//    mouse_y -= viewport->y;
-    
-//    mat4_t_mul(&view_projection_matrix, &viewport->inv_view_matrix, &viewport->projection_matrix);
     
     vk_viewport.width = (float)viewport->width;
     vk_viewport.height = (float)viewport->height;
@@ -1197,6 +1305,7 @@ union r_command_buffer_h ed_WorldContextBeginPicking(struct ed_editor_viewport_t
     render_pass = r_GetRenderPassPointer(ed_picking_render_pass);
     pipeline = r_GetPipelinePointer(render_pass->pipelines[0]);
     vertex_heap = r_GetHeapPointer(r_vertex_heap);
+    index_heap = r_GetHeapPointer(r_index_heap);
     framebuffer = r_GetFramebufferPointer(ed_picking_framebuffer);
     
     begin_info.render_pass = ed_picking_render_pass;
@@ -1214,64 +1323,26 @@ union r_command_buffer_h ed_WorldContextBeginPicking(struct ed_editor_viewport_t
     
     r_vkBeginCommandBuffer(command_buffer);
     r_vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_heap->buffer, &(VkDeviceSize){0});
+    r_vkCmdBindIndexBuffer(command_buffer, index_heap->buffer, 0, VK_INDEX_TYPE_UINT32);
     r_vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
     r_vkCmdSetViewport(command_buffer, 0, 1, &vk_viewport);
     r_vkCmdSetScissor(command_buffer, 0, 1, &scissor);
     r_vkCmdBeginRenderPass(command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
     
-    return command_buffer;
-//    for(uint32_t object_index = 0; object_index < objects->cursor; object_index++)
-//    {
-//        struct ed_object_h *handle = get_list_element(objects, object_index);
-//        struct ed_object_t *object = ed_WorldContextGetObjectPointer(*handle);
-//        if(object)
-//        {
-//            mat4_t_identity(&push_constant.model_view_projection_matrix);
-//            mat4_t_mul(&push_constant.model_view_projection_matrix, &object->transform, &view_projection_matrix);
-//            push_constant.object_index = object_index + ED_PICKER_OBJECT_ID_LAST;
-//            r_vkCmdPushConstants(command_buffer, pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push_constant), &push_constant);
-//            r_vkCmdDraw(command_buffer, object->count, 1, object->start, 0);
-//        }
-//    }
     
-
-//    r_vkCmdEndRenderPass(command_buffer);
-//    r_vkEndCommandBuffer(command_buffer);
-//    
-//    submit_info.s_type = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-//    submit_info.command_buffers = &command_buffer;
-//    submit_info.command_buffer_count = 1;
-//    
-//    r_vkResetFences(1, &r_draw_fence);
-//    r_vkQueueSubmit(r_draw_queue, 1, &submit_info, r_draw_fence);
-//    r_vkWaitForFences(1, &r_draw_fence, VK_TRUE, 0xffffffffffffffff);
-//    
-//    VkSubresourceLayout layout;
-//    VkImageSubresource subresource;
-//    
-//    subresource.mipLevel = 0;
-//    subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-//    subresource.arrayLayer = 0;
-//    
-//    struct r_texture_t *texture = r_GetTexturePointer(framebuffer->textures[0]);
-//    struct r_image_t *image = r_GetImagePointer(texture->image);
-//    vkGetImageSubresourceLayout(r_GetDevice(), image->image, &subresource, &layout);
-//    
-//    uint32_t row = layout.rowPitch * mouse_y;
-//    
-//    return (struct ed_object_h){(*(uint32_t *)((char *)ed_picking_memory + row + mouse_x * sizeof(uint32_t)))};
+    return command_buffer;
 }
 
 struct ed_object_h ed_WorldContextEndPicking(union r_command_buffer_h command_buffer, struct ed_editor_viewport_t *viewport)
 {
-    int32_t mouse_x;
-    int32_t mouse_y;
+//    int32_t mouse_x;
+//    int32_t mouse_y;
     struct r_submit_info_t submit_info = {};
     
-    in_GetMousePos(&mouse_x, &mouse_y);
-
-    mouse_x -= viewport->x;
-    mouse_y -= viewport->y;
+//    in_GetMousePos(&mouse_x, &mouse_y);
+//
+//    mouse_x -= viewport->x;
+//    mouse_y -= viewport->y;
     
     r_vkCmdEndRenderPass(command_buffer);
     r_vkEndCommandBuffer(command_buffer);
@@ -1296,19 +1367,23 @@ struct ed_object_h ed_WorldContextEndPicking(union r_command_buffer_h command_bu
     struct r_image_t *image = r_GetImagePointer(texture->image);
     vkGetImageSubresourceLayout(r_GetDevice(), image->image, &subresource, &layout);
     
-    uint32_t row = layout.rowPitch * mouse_y;
+    uint32_t row = layout.rowPitch * viewport->mouse_y;
     
-    return (struct ed_object_h){(*(uint32_t *)((char *)ed_picking_memory + row + mouse_x * sizeof(uint32_t)))};
+    return (struct ed_object_h){(*(uint32_t *)((char *)ed_picking_memory + row + viewport->mouse_x * sizeof(uint32_t)))};
 
 }
 
-struct ed_object_h ed_WorldContextPickManipulator(mat4_t *manipulator_transform, struct ed_editor_viewport_t *viewport)
+struct ed_object_h ed_WorldContextPickManipulator(mat4_t *manipulator_transform, uint32_t transform_type, struct ed_editor_viewport_t *viewport)
 {
     union r_command_buffer_h command_buffer;
     struct r_render_pass_t *render_pass;
     struct r_pipeline_t *pipeline;
+    mat4_t draw_matrix;
     mat4_t model_view_projection_matrix;
     mat4_t view_projection_matrix;
+    struct r_chunk_t *vertex_chunk;
+    struct r_chunk_t *index_chunk;
+    struct ed_manipulator_t *manipulator;
     
     struct
     {
@@ -1320,19 +1395,23 @@ struct ed_object_h ed_WorldContextPickManipulator(mat4_t *manipulator_transform,
     render_pass = r_GetRenderPassPointer(ed_picking_render_pass);
     pipeline = r_GetPipelinePointer(render_pass->pipelines[0]);
     command_buffer = ed_WorldContextBeginPicking(viewport);
-
-    for(uint32_t object_index = 0; object_index < objects->cursor; object_index++)
+    
+    vertex_chunk = r_GetChunkPointer(ed_translation_manipulator_vert_chunk);
+    index_chunk = r_GetChunkPointer(ed_translation_manipulator_index_chunk);
+    
+    ed_WorldContextManipulatorDrawTransform(&push_constant.model_view_projection_matrix, manipulator_transform, viewport);
+    mat4_t_mul(&push_constant.model_view_projection_matrix, &push_constant.model_view_projection_matrix, &view_projection_matrix);
+    
+    manipulator = ed_manipulators + ED_TRANSFORM_TYPE_TRANSLATION;
+    uint32_t index_start = index_chunk->start / sizeof(uint32_t);
+    uint32_t vertex_start = vertex_chunk->start / sizeof(struct r_i_vertex_t);
+    
+    for(uint32_t component_index = 0; component_index < manipulator->component_count; component_index++)
     {
-        struct ed_object_h *handle = get_list_element(objects, object_index);
-        struct ed_object_t *object = ed_WorldContextGetObjectPointer(*handle);
-        if(object)
-        {
-            mat4_t_identity(&push_constant.model_view_projection_matrix);
-            mat4_t_mul(&push_constant.model_view_projection_matrix, &object->transform, &view_projection_matrix);
-            push_constant.object_index = object_index + ED_PICKER_OBJECT_ID_LAST;
-            r_vkCmdPushConstants(command_buffer, pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push_constant), &push_constant);
-            r_vkCmdDraw(command_buffer, object->count, 1, object->start, 0);
-        }
+        struct ed_manipulator_component_t *component = manipulator->components + component_index;
+        push_constant.object_index = component->id;
+        r_vkCmdPushConstants(command_buffer, pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push_constant), &push_constant);
+        r_vkCmdDrawIndexed(command_buffer, component->count, 1, index_start, vertex_start + component->vertex_start, 0);
     }
     
     return ed_WorldContextEndPicking(command_buffer, viewport);
@@ -1375,6 +1454,116 @@ struct ed_object_h ed_WorldContextPickObject(struct list_t *objects, struct ed_e
     return ed_WorldContextEndPicking(command_buffer, viewport);
 }
 
+void ed_WorldContextManipulatorDrawTransform(mat4_t *draw_transform, mat4_t *manipulator_transform, struct ed_editor_viewport_t *viewport)
+{
+    vec3_t view_pos = vec3_t_c_vec4_t(&viewport->view_matrix.rows[3]);
+    vec3_t manipulator_pos = vec3_t_c_vec4_t(&manipulator_transform->rows[3]);
+    vec3_t view_manipulator_vec;
+    
+    vec3_t_sub(&view_manipulator_vec, &manipulator_pos, &view_pos);
+    
+    float scale = vec3_t_length(&view_manipulator_vec) * 0.1;
+    *draw_transform = *manipulator_transform;
+    draw_transform->rows[0].x *= scale;
+    draw_transform->rows[1].y *= scale;
+    draw_transform->rows[2].z *= scale;
+}
+
+void ed_WorldContextManipulatorPlaneMousePos(struct ed_manipulator_state_t *manipulator_state, struct ed_editor_viewport_t *viewport, vec3_t *mouse_plane_pos, vec3_t *mouse_plane_normal)
+{
+    vec3_t manipulator_pos = vec3_t_c_vec4_t(&manipulator_state->transform.rows[3]);
+    vec3_t plane_normal;
+    vec3_t plane_point;
+    vec3_t camera_pos = vec3_t_c_vec4_t(&viewport->view_matrix.rows[3]);
+    vec3_t camera_plane_vec;
+    
+    switch(manipulator_state->picked_axis)
+    {
+        case ED_PICKER_OBJECT_ID_X_AXIS:
+            plane_normal = vec3_t_c(1.0, 0.0, 0.0);
+        break;
+        
+        case ED_PICKER_OBJECT_ID_Y_AXIS:
+            plane_normal = vec3_t_c(0.0, 1.0, 0.0);
+        break;
+        
+        case ED_PICKER_OBJECT_ID_Z_AXIS:
+            plane_normal = vec3_t_c(0.0, 0.0, 1.0);
+        break;
+    }
+
+    
+    vec3_t_sub(&camera_plane_vec, &manipulator_pos, &camera_pos);
+    float dist = vec3_t_dot(&camera_plane_vec, &plane_normal);
+    vec3_t_fmadd(&plane_point, &manipulator_pos, &plane_normal, dist);
+    vec3_t_sub(&plane_normal, &camera_pos, &plane_point);
+    vec3_t_normalize(&plane_normal, &plane_normal);
+    
+    float fovy = 0.68;
+    float aspect = (float)viewport->width / (float)viewport->height;
+    float top = tanf(fovy) * 0.1;
+    float right = top * aspect;
+    
+    vec3_t right_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[0]);
+    vec3_t up_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[1]);
+    vec3_t forward_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[2]);
+    vec3_t mouse_vec = vec3_t_c(0.0, 0.0, 0.0);
+
+    float mouse_x = ((float)viewport->mouse_x / (float)viewport->width) * 2.0 - 1.0;
+    float mouse_y = 1.0 - ((float)viewport->mouse_y / (float)viewport->height) * 2.0;
+    
+    vec3_t_mul(&right_vec, &right_vec, right * mouse_x);
+    vec3_t_mul(&up_vec, &up_vec, top * mouse_y);
+    vec3_t_mul(&forward_vec, &forward_vec, -0.1);
+    
+    vec3_t_add(&mouse_vec, &right_vec, &up_vec);
+    vec3_t_add(&mouse_vec, &mouse_vec, &forward_vec);
+    vec3_t_normalize(&mouse_vec, &mouse_vec);
+    
+    float d = vec3_t_dot(&mouse_vec, &plane_normal);
+    float t = 0.0;
+    
+    if(d)
+    {
+        t = vec3_t_dot(&camera_plane_vec, &plane_normal) / d;                
+    }
+    
+    vec3_t_fmadd(mouse_plane_pos, &camera_pos, &mouse_vec, t);
+    *mouse_plane_normal = plane_normal;
+    
+//    vec3_t_sub(&sub_context->pick_offset, &plane_point, &manipulator_pos);
+}
+
+void ed_WorldContextApplyTransform(mat4_t *transform, struct list_t *objects, uint32_t transform_type, uint32_t transform_mode)
+{
+    switch(transform_type)
+    {
+        case ED_TRANSFORM_TYPE_TRANSLATION:
+            {
+                vec3_t translation;
+                translation.x = transform->rows[3].x;
+                translation.y = transform->rows[3].y;
+                translation.z = transform->rows[3].z;
+                
+                for(uint32_t object_index = 0; object_index < objects->cursor; object_index++)
+                {
+                    struct ed_object_h handle = *(struct ed_object_h *)get_list_element(objects, object_index);
+                    struct ed_object_t *object = ed_WorldContextGetObjectPointer(handle);
+                    
+                    object->transform.rows[3].x += translation.x;
+                    object->transform.rows[3].y += translation.y;
+                    object->transform.rows[3].z += translation.z;
+//                    switch(object->type)
+//                    {
+//                        case ED_OBJECT_TYPE_BRUSH:
+////                            bsh_TranslateBrush(object->object.brush, &translation);
+//                        break;
+//                    }
+                }
+            }
+        break;
+    }
+}
 
 
 
