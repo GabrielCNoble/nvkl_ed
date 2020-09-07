@@ -1,16 +1,16 @@
 # depslib dependency file v1.0
-1597291731 source:c:\users\gabri\documents\compiler\neighbor_editor\ed.c
+1599447219 source:c:\users\gabri\documents\compiler\neighbor_editor\ed.c
 	<stdio.h>
 	"ed.h"
+	"ed_w_ctx.h"
 	"neighbor/r_draw.h"
 	"neighbor/lib/dstuff/ds_mem.h"
 	"neighbor/ui.h"
 	"bsh.h"
 	"neighbor/in.h"
 	"neighbor/g.h"
-	"ui_ed.h"
 
-1597221152 c:\users\gabri\documents\compiler\neighbor_editor\ed.h
+1599449627 c:\users\gabri\documents\compiler\neighbor_editor\ed.h
 	"bsh.h"
 	"neighbor/lib/dstuff/ds_list.h"
 	"neighbor/ent.h"
@@ -51,7 +51,7 @@
 	"r_common.h"
 	<stdint.h>
 
-1596347321 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_common.h
+1598889019 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_common.h
 	<stdint.h>
 	"lib/SDL/include/SDL.h"
 	"lib/dstuff/ds_stack_list.h"
@@ -416,14 +416,14 @@
 	<stdio.h>
 	"ds_mem.h"
 
-1594904035 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_mem.h
+1599362512 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_mem.h
 	<stdint.h>
 	<string.h>
 	<stdlib.h>
 	<stdio.h>
 	<string.h>
 
-1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_list.h
+1598607409 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_list.h
 	<stdint.h>
 	<string.h>
 	<stdlib.h>
@@ -503,7 +503,7 @@
 	<stdio.h>
 	<float.h>
 
-1594379118 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\g.c
+1599364259 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\g.c
 	"lib/SDL/include/SDL.h"
 	"g.h"
 	"in.h"
@@ -513,17 +513,18 @@
 	"ui.h"
 	"scr.h"
 	"ent.h"
+	"lib/dstuff/ds_mem.h"
 	<stdio.h>
 	<stdint.h>
 
-1594379104 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\in.h
+1599437988 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\in.h
 	<stdint.h>
 	"lib/SDL/include/SDL.h"
 
 1596347548 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.h
 	"r_common.h"
 
-1596378814 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.h
+1599360525 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.h
 	"r_nvkl.h"
 	"lib/dstuff/ds_matrix.h"
 	"lib/dstuff/ds_list.h"
@@ -630,7 +631,7 @@
 	"ds_list.h"
 	"ds_vector.h"
 
-1596699373 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\in.c
+1599438197 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\in.c
 	"in.h"
 	"lib/SDL/include/SDL.h"
 	<stdio.h>
@@ -764,7 +765,7 @@
 	"lib/dstuff/ds_stack_list.h"
 	"lib/dstuff/ds_dbvh.h"
 
-1597018639 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.c
+1599365442 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.c
 	"r_draw.h"
 	"spr.h"
 	"lib/dstuff/ds_file.h"
@@ -774,7 +775,7 @@
 	<stdio.h>
 	<stddef.h>
 
-1596348030 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.c
+1599364415 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.c
 	"r_nvkl.h"
 	"lib/dstuff/ds_mem.h"
 	"lib/dstuff/ds_path.h"
@@ -809,7 +810,7 @@
 	"lib/dstuff/ds_sprpk.h"
 	"lib/stb/stb_image.h"
 
-1596698304 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ui.c
+1599360939 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ui.c
 	"ui.h"
 	"in.h"
 	"r_draw.h"
@@ -834,14 +835,14 @@
 	<stdint.h>
 	<type_traits>
 
-1597222010 source:c:\users\gabri\documents\compiler\neighbor_editor\bsh.c
+1599459707 source:c:\users\gabri\documents\compiler\neighbor_editor\bsh.c
 	"bsh.h"
 	"neighbor/lib/dstuff/ds_mem.h"
 	"neighbor/r_draw.h"
 	<string.h>
 	<stdlib.h>
 
-1597221948 c:\users\gabri\documents\compiler\neighbor_editor\bsh.h
+1599459621 c:\users\gabri\documents\compiler\neighbor_editor\bsh.h
 	"neighbor/lib/dstuff/ds_matrix.h"
 	"neighbor/lib/dstuff/ds_vector.h"
 	"neighbor/r_common.h"
@@ -864,4 +865,13 @@
 
 1594379302 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl.h
 	"SDL2/SDL.h"
+
+1599456290 c:\users\gabri\documents\compiler\neighbor_editor\ed_w_ctx.h
+	"ed.h"
+
+1599459333 source:c:\users\gabri\documents\compiler\neighbor_editor\ed_w_ctx.c
+	"ed_w_ctx.h"
+	"neighbor/in.h"
+	"neighbor/r_draw.h"
+	"neighbor/lib/dstuff/ds_mem.h"
 

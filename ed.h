@@ -8,7 +8,6 @@
 enum ED_EDITOR_CONTEXT
 {
     ED_CONTEXT_WORLD = 0,
-//    ED_EDITOR_CONTEXT_BRUSH,
     ED_CONTEXT_LAST
 };
 
@@ -38,38 +37,40 @@ enum ED_TRANSFORM_MODE
     ED_TRANSFORM_MODE_LOCAL,
 };
 
-
-enum ED_OBJECT_TYPES
-{
-    ED_OBJECT_TYPE_ENTITY,
-    ED_OBJECT_TYPE_LIGHT,
-    ED_OBJECT_TYPE_BRUSH,
-    ED_OBJECT_TYPE_LAST,
-};
-
-union ed_object_ref_t
-{
-    struct bsh_brush_h brush;
-    struct ent_entity_h entity;
-};
-
-struct ed_object_t
-{
-    mat4_t transform;
-    uint32_t type;
-    uint32_t start;
-    uint32_t count;
-    uint32_t topology;
-    union ed_object_ref_t object;
-};
-
-struct ed_object_h
-{
-    uint32_t index;
-};
-
 struct ed_editor_window_t;
 struct ed_editor_viewport_t;
+
+/*
+    The basic editor functionality is comprised of windows and contexts. Windows serve
+    to determine which context is receiving inputs. Contexts serve to limit which 
+    commands can be executed in a given situation with the given input.
+
+    For instance, the level editor has a context to deal with world editing, one for
+    dealing with brush editing, one for dealing with material editing, etc.
+
+    The world editing context will allow moving things around, and will respond to
+    commands to add/delete objects, or to change the transformation mode. The brush
+    editing context won't respond to the same comands, however. It'll allow to grab
+    vertices/edges/faces, drag them around, but won't allow adding new brushes to the
+    world. Nor will it allow select objects that are not brushes. It'll allow editing
+    only brushes that were "brought in" the brush editing context.
+
+    Each context will hold its own blob of data, which they use however they see fit.
+    For example, the world editing context will hold a list of selections, while the
+    brush editing context will hold a "map" of vertices/edges/faces selected, that maps
+    between those primitives and the original brush. The material editing context will
+    hold the current material being edited.
+
+    A window is just an abstraction, and it represents anything that can receive inputs
+    from the user. So, a simple widget, with a few sliders and checkboxes, is a window, and
+    there will be a context attached to it, consuming the inputs. Viewports are also windows.
+    The only difference is that they render to the surface of the window.
+
+    All contexts are "alive" all the time, but only one will be active. The active context
+    is the one consuming the inputs. 
+
+    A window allows only a single context to be attached to it at a time.
+*/
 
 struct ed_context_t
 {
@@ -79,56 +80,56 @@ struct ed_context_t
     void (*update_function)(void *context_data, struct ed_editor_window_t *window);
 };
 
-enum ED_WORLD_CONTEXT_SUB_CONTEXT
-{
-    ED_WORLD_CONTEXT_SUB_CONTEXT_WORLD = 0,
-    ED_WORLD_CONTEXT_SUB_CONTEXT_BRUSH,
-    ED_WORLD_CONTEXT_SUB_CONTEXT_PATH,
-    ED_WORLD_CONTEXT_SUB_CONTEXT_LAST
-};
-
-struct ed_manipulator_component_t
-{
-    uint32_t id;
-    uint32_t index_start;
-    uint32_t vertex_start;
-    uint32_t count;
-};
-
-struct ed_manipulator_t
-{
-    uint32_t component_count;
-    struct ed_manipulator_component_t *components;
-};
-
-struct ed_manipulator_state_t
-{
-    mat4_t transform;
-    uint32_t picked_axis;
-    uint32_t transform_mode;
-    uint32_t transform_type;
-    uint32_t just_picked;
-};
-
-struct ed_world_context_sub_context_t
-{
-    struct list_t selections;
-    struct list_t objects;
-    struct ed_manipulator_state_t manipulator_state;
-//    uint32_t manipulator_axis;
-//    mat4_t manipulator_transform;
-    vec3_t pick_offset;
+//enum ED_WORLD_CONTEXT_SUB_CONTEXT
+//{
+//    ED_WORLD_CONTEXT_SUB_CONTEXT_WORLD = 0,
+//    ED_WORLD_CONTEXT_SUB_CONTEXT_BRUSH,
+//    ED_WORLD_CONTEXT_SUB_CONTEXT_PATH,
+//    ED_WORLD_CONTEXT_SUB_CONTEXT_LAST
+//};
+//
+//struct ed_manipulator_component_t
+//{
+//    uint32_t id;
+//    uint32_t index_start;
+//    uint32_t vertex_start;
+//    uint32_t count;
+//};
+//
+//struct ed_manipulator_t
+//{
+//    uint32_t component_count;
+//    struct ed_manipulator_component_t *components;
+//};
+//
+//struct ed_manipulator_state_t
+//{
+//    mat4_t transform;
+//    uint32_t picked_axis;
 //    uint32_t transform_mode;
 //    uint32_t transform_type;
-    void (*input_function)(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
-    void (*update_function)(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
-};
+//    uint32_t just_picked;
+//};
 
-struct ed_world_context_data_t
-{
-    struct ed_world_context_sub_context_t *sub_contexts;
-    struct ed_world_context_sub_context_t *active_sub_context;
-};
+//struct ed_world_context_sub_context_t
+//{
+//    struct list_t selections;
+//    struct list_t objects;
+//    struct ed_manipulator_state_t manipulator_state;
+////    uint32_t manipulator_axis;
+////    mat4_t manipulator_transform;
+//    vec3_t pick_offset;
+////    uint32_t transform_mode;
+////    uint32_t transform_type;
+//    void (*input_function)(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
+//    void (*update_function)(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
+//};
+//
+//struct ed_world_context_data_t
+//{
+//    struct ed_world_context_sub_context_t *sub_contexts;
+//    struct ed_world_context_sub_context_t *active_sub_context;
+//};
 
 enum ED_EDITOR_WINDOW_TYPE
 {
@@ -160,14 +161,14 @@ struct ed_editor_viewport_t
     mat4_t projection_matrix;
 };
 
-enum ED_PICKER_OBJECT_ID
-{
-    ED_PICKER_OBJECT_ID_X_AXIS = 1,
-    ED_PICKER_OBJECT_ID_Y_AXIS = 1 << 1,
-    ED_PICKER_OBJECT_ID_Z_AXIS = 1 << 2,
-    ED_PICKER_OBJECT_ID_ALL_AXIS = ED_PICKER_OBJECT_ID_X_AXIS | ED_PICKER_OBJECT_ID_Y_AXIS | ED_PICKER_OBJECT_ID_Z_AXIS,
-    ED_PICKER_OBJECT_ID_LAST = ED_PICKER_OBJECT_ID_ALL_AXIS + 1
-};
+//enum ED_PICKER_OBJECT_ID
+//{
+//    ED_PICKER_OBJECT_ID_X_AXIS = 1,
+//    ED_PICKER_OBJECT_ID_Y_AXIS = 1 << 1,
+//    ED_PICKER_OBJECT_ID_Z_AXIS = 1 << 2,
+//    ED_PICKER_OBJECT_ID_ALL_AXIS = ED_PICKER_OBJECT_ID_X_AXIS | ED_PICKER_OBJECT_ID_Y_AXIS | ED_PICKER_OBJECT_ID_Z_AXIS,
+//    ED_PICKER_OBJECT_ID_LAST = ED_PICKER_OBJECT_ID_ALL_AXIS + 1
+//};
 
 void ed_Init();
 
@@ -187,39 +188,11 @@ void ed_DrawLayout();
 =============================================================
 */
 
-struct ed_object_h ed_WorldContextCreateObject(mat4_t *transform, uint32_t type, uint32_t start, uint32_t count, union ed_object_ref_t object_ref);
 
-void ed_WorldContextDestroyObject(struct ed_object_h handle);
+union r_command_buffer_h ed_BeginPicking(struct ed_editor_viewport_t *viewport);
 
-struct ed_object_h ed_WorldContextCreateBrushObject(vec3_t *position);
-
-struct ed_object_t *ed_WorldContextGetObjectPointer(struct ed_object_h handle);
+uint32_t ed_EndPicking(union r_command_buffer_h command_buffer, struct ed_editor_viewport_t *viewport);
 
 void ed_FlyView(struct ed_editor_viewport_t *viewport);
-
-void ed_WorldContextInput(void *context_data, struct ed_editor_window_t *window);
-
-void ed_WorldContextUpdate(void *context_data, struct ed_editor_window_t *window);
-
-void ed_WorldContextDrawObjects(void *context_data, struct ed_editor_window_t *window);
-
-void ed_WorldContextWorldSubContextInput(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
-
-void ed_WorldContextWorldSubContextUpdate(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
-
-union r_command_buffer_h ed_WorldContextBeginPicking(struct ed_editor_viewport_t *viewport);
-
-struct ed_object_h ed_WorldContextEndPicking(union r_command_buffer_h command_buffer, struct ed_editor_viewport_t *viewport);
-
-struct ed_object_h ed_WorldContextPickManipulator(mat4_t *manipulator_transform, uint32_t transform_type, struct ed_editor_viewport_t *viewport);
-
-struct ed_object_h ed_WorldContextPickObject(struct list_t *objects, struct ed_editor_viewport_t *viewport);
-
-void ed_WorldContextManipulatorDrawTransform(mat4_t *draw_transform, mat4_t *transform, struct ed_editor_viewport_t *viewport);
-
-void ed_WorldContextManipulatorPlaneMousePos(struct ed_manipulator_state_t *manipulator_state, struct ed_editor_viewport_t *viewport, vec3_t *mouse_plane_pos, vec3_t *mouse_plane_normal);
-
-void ed_WorldContextApplyTransform(mat4_t *transform, struct list_t *objects, uint32_t transform_type, uint32_t transform_mode);
-
 
 #endif // ED_H

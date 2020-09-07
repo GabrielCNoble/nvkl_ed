@@ -116,10 +116,6 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="neighbor/ui.h" />
-		<Unit filename="r_ed.c">
-			<Option compilerVar="CC" />
-		</Unit>
-		<Unit filename="r_ed.h" />
 		<Unit filename="ui_ed.c">
 			<Option compilerVar="CPP" />
 		</Unit>
