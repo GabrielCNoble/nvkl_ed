@@ -5,6 +5,21 @@
 #include "neighbor/lib/dstuff/ds_list.h"
 #include "neighbor/ent.h"
 
+
+
+struct ed_level_data_t
+{
+    char level_name[PATH_MAX];
+};
+
+struct ed_level_t 
+{
+    char level_path[PATH_MAX];
+    struct ed_level_data_t data;
+};
+
+
+
 enum ED_EDITOR_CONTEXT
 {
     ED_CONTEXT_WORLD = 0,
@@ -22,23 +37,6 @@ enum ED_SELECTION_TYPE
     ED_SELECTION_TYPE_LIGHT,
 };
 
-enum ED_TRANSFORM_TYPE
-{
-    ED_TRANSFORM_TYPE_TRANSLATION = 0,
-    ED_TRANSFORM_TYPE_ROTATION,
-    ED_TRANSFORM_TYPE_SCALE,
-    ED_TRANSFORM_TYPE_BOUNDS,
-    ED_TRANSFORM_TYPE_LAST
-};
-
-enum ED_TRANSFORM_MODE
-{
-    ED_TRANSFORM_MODE_WORLD = 0,
-    ED_TRANSFORM_MODE_LOCAL,
-};
-
-struct ed_editor_window_t;
-struct ed_editor_viewport_t;
 
 /*
     The basic editor functionality is comprised of windows and contexts. Windows serve
@@ -72,64 +70,19 @@ struct ed_editor_viewport_t;
     A window allows only a single context to be attached to it at a time.
 */
 
+struct ed_editor_window_t;
+struct ed_editor_viewport_t;
+
 struct ed_context_t
 {
     void *context_data;
     uint32_t update_frame;
+    uint32_t hold_focus;
     void (*input_function)(void *context_data, struct ed_editor_window_t *window);
     void (*update_function)(void *context_data, struct ed_editor_window_t *window);
+    uint32_t (*layout_function)(void *context_data, struct ed_editor_window_t *window);
+    void (*reset_function)(void *context_data);
 };
-
-//enum ED_WORLD_CONTEXT_SUB_CONTEXT
-//{
-//    ED_WORLD_CONTEXT_SUB_CONTEXT_WORLD = 0,
-//    ED_WORLD_CONTEXT_SUB_CONTEXT_BRUSH,
-//    ED_WORLD_CONTEXT_SUB_CONTEXT_PATH,
-//    ED_WORLD_CONTEXT_SUB_CONTEXT_LAST
-//};
-//
-//struct ed_manipulator_component_t
-//{
-//    uint32_t id;
-//    uint32_t index_start;
-//    uint32_t vertex_start;
-//    uint32_t count;
-//};
-//
-//struct ed_manipulator_t
-//{
-//    uint32_t component_count;
-//    struct ed_manipulator_component_t *components;
-//};
-//
-//struct ed_manipulator_state_t
-//{
-//    mat4_t transform;
-//    uint32_t picked_axis;
-//    uint32_t transform_mode;
-//    uint32_t transform_type;
-//    uint32_t just_picked;
-//};
-
-//struct ed_world_context_sub_context_t
-//{
-//    struct list_t selections;
-//    struct list_t objects;
-//    struct ed_manipulator_state_t manipulator_state;
-////    uint32_t manipulator_axis;
-////    mat4_t manipulator_transform;
-//    vec3_t pick_offset;
-////    uint32_t transform_mode;
-////    uint32_t transform_type;
-//    void (*input_function)(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
-//    void (*update_function)(struct ed_world_context_sub_context_t *sub_context, struct ed_editor_viewport_t *viewport);
-//};
-//
-//struct ed_world_context_data_t
-//{
-//    struct ed_world_context_sub_context_t *sub_contexts;
-//    struct ed_world_context_sub_context_t *active_sub_context;
-//};
 
 enum ED_EDITOR_WINDOW_TYPE
 {
@@ -141,6 +94,7 @@ struct ed_editor_window_t
     struct ed_editor_window_t *next;
     struct ed_editor_window_t *prev;
     struct ed_context_t *attached_context;
+    uint32_t focused;
     uint32_t type;
 };
 
@@ -161,14 +115,11 @@ struct ed_editor_viewport_t
     mat4_t projection_matrix;
 };
 
-//enum ED_PICKER_OBJECT_ID
-//{
-//    ED_PICKER_OBJECT_ID_X_AXIS = 1,
-//    ED_PICKER_OBJECT_ID_Y_AXIS = 1 << 1,
-//    ED_PICKER_OBJECT_ID_Z_AXIS = 1 << 2,
-//    ED_PICKER_OBJECT_ID_ALL_AXIS = ED_PICKER_OBJECT_ID_X_AXIS | ED_PICKER_OBJECT_ID_Y_AXIS | ED_PICKER_OBJECT_ID_Z_AXIS,
-//    ED_PICKER_OBJECT_ID_LAST = ED_PICKER_OBJECT_ID_ALL_AXIS + 1
-//};
+enum ED_BROWSER_MODE
+{
+    ED_BROWSER_MODE_SAVE = 0,
+    ED_BROWSER_MODE_LOAD,
+};
 
 void ed_Init();
 
@@ -188,6 +139,25 @@ void ed_DrawLayout();
 =============================================================
 */
 
+void ed_OpenBrowser(uint32_t mode);
+
+void ed_CloseBrowser();
+
+void ed_LoadLevel(char *file_path);
+
+void ed_SaveLevel(char *file_path);
+
+void ed_NewLevel();
+
+void ed_SerializeLevel(void **buffer, uint32_t *buffer_size);
+
+void ed_UnserializeLevel(void *buffer);
+
+/*
+=============================================================
+=============================================================
+=============================================================
+*/
 
 union r_command_buffer_h ed_BeginPicking(struct ed_editor_viewport_t *viewport);
 

@@ -1,11 +1,14 @@
 #include "ed_w_ctx.h"
 #include "neighbor/in.h"
+#include "neighbor/ui.h"
 #include "neighbor/r_draw.h"
+#include "neighbor/lib/dstuff/ds_obj.h"
 #include "neighbor/lib/dstuff/ds_mem.h"
 
 extern struct ed_context_t ed_contexts[ED_CONTEXT_LAST];
 extern struct r_render_pass_handle_t ed_picking_render_pass;
 struct list_t ed_object_handles;
+struct list_t ed_transform_brush_face_indices;
 
 uint32_t ed_max_outline_verts;
 struct r_i_vertex_t *ed_outline_verts;
@@ -22,6 +25,7 @@ extern VkFence r_draw_fence;
 struct r_i_vertex_t *ed_center_grid;
 struct r_i_vertex_t *ed_creating_brush_verts;
 struct r_i_vertex_t *ed_translation_manipulator_verts;
+uint32_t ed_translation_manipulator_vert_count;
 uint32_t *ed_translation_manipulator_indices;
 struct r_chunk_h ed_translation_manipulator_vert_chunk;
 struct r_chunk_h ed_translation_manipulator_index_chunk;
@@ -32,6 +36,16 @@ struct r_chunk_h ed_translation_manipulator_index_chunk;
 #define ED_TRANSLATION_MANIPULATOR_VERT_COUNT ((ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT + ED_TRANSLATION_MANIPULATOR_PLANE_VERT_COUNT) * 3)
 #define ED_TRANSLATION_MANIPULATOR_INDICE_COUNT (ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + ED_TRANSLATION_MANIPULATOR_PLANE_INDICE_COUNT)
 #define ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT (ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT + ED_TRANSLATION_MANIPULATOR_PLANE_VERT_COUNT)
+#define ED_TRANSLATION_MANIPULATOR_SHAFT_THICKNESS 0.05
+
+uint32_t ed_rotation_manipulator_vert_count;
+struct r_i_vertex_t *ed_rotation_manipulator_verts;
+struct r_chunk_h ed_rotation_manipulator_vert_chunk;
+struct r_chunk_h ed_rotation_manipulator_index_chunk;
+#define ED_ROTATION_MANIPULATOR_OUTTER_DIAMETER 1.0
+#define ED_ROTATION_MANIPULATOR_INNER_DIAMETER 0.8
+#define ED_ROTATION_MANIPULATOR_RING_VERT_COUNT 32
+#define ED_ROTATION_MANIPULATOR_RING_INDICE_COUNT (ED_ROTATION_MANIPULATOR_RING_VERT_COUNT*6)
 
 struct r_i_draw_state_t ed_selected_face_fill_draw_state = {
     .line_width = 1.0,
@@ -119,31 +133,31 @@ struct r_i_draw_state_t ed_creating_brush_draw_state = {
 };
 
 struct ed_manipulator_t ed_manipulators[ED_TRANSFORM_TYPE_LAST] = {
-    [ED_TRANSFORM_TYPE_TRANSLATION] = {
-        .component_count = 3,
-        .components = (struct ed_manipulator_component_t []){
-            {
-                .vertex_start = 0, 
-                .index_start = 0, 
-                .count = ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT, 
-                .id = ED_MANIPULATOR_AXIS_ID_X_AXIS,
-            },
-            
-            {
-                .vertex_start = ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT, 
-                .index_start = 0, 
-                .count = ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT, 
-                .id = ED_MANIPULATOR_AXIS_ID_Y_AXIS,
-            },
-            
-            {
-                .vertex_start = ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2, 
-                .index_start = 0, 
-                .count = ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT, 
-                .id = ED_MANIPULATOR_AXIS_ID_Z_AXIS,
-            },
-        }
-    }
+//    [ED_TRANSFORM_TYPE_TRANSLATION] = {
+//        .component_count = 3,
+//        .components = (struct ed_manipulator_component_t []){
+//            {
+//                .vertex_start = 0, 
+//                .start = 0, 
+//                .count = ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT, 
+//                .id = ED_MANIPULATOR_AXIS_ID_X_AXIS,
+//            },
+//            
+//            {
+//                .vertex_start = ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT, 
+//                .start = 0, 
+//                .count = ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT, 
+//                .id = ED_MANIPULATOR_AXIS_ID_Y_AXIS,
+//            },
+//            
+//            {
+//                .vertex_start = ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2, 
+//                .start = 0, 
+//                .count = ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT, 
+//                .id = ED_MANIPULATOR_AXIS_ID_Z_AXIS,
+//            },
+//        }
+//    },
 };
 
 vec3_t ed_manipulator_plane_normal[] = {
@@ -160,7 +174,32 @@ void (*ed_w_ctx_StateFunction[])(struct ed_world_context_data_t *data, struct ed
     [ED_WORLD_CONTEXT_STATE_PICK_BRUSH_FACE] = ed_w_ctx_PickBrushFaceState,
     [ED_WORLD_CONTEXT_STATE_MANIPULATING] = ed_w_ctx_ManipulatingState,
     [ED_WORLD_CONTEXT_STATE_CREATING_BRUSH] = ed_w_ctx_CreatingBrushState,
+    [ED_WORLD_CONTEXT_STATE_EXTRUDING_BRUSH_FACES] = ed_w_ctx_ExtrudingBrushFacesState,
+    [ED_WORLD_CONTEXT_STATE_COPYING_SELECTIONS] = ed_w_ctx_CopyingSelectionsState,
+    [ED_WORLD_CONTEXT_STATE_DELETING_SELECTIONS] = ed_w_ctx_DeletingSelectionsState,
     [ED_WORLD_CONTEXT_STATE_FLYING] = ed_w_ctx_FlyingState,
+};
+
+float ed_linear_thresholds[] = {
+    1.0, 
+    0.5,
+    0.25,
+    0.2,
+    0.1,
+    0.05,
+    0.01,
+    0.0,
+};
+
+float ed_angular_thresholds[] = {
+    180.0,
+    90.0,
+    60.0,
+    45.0,
+    30.0,
+    10.0,
+    1.0,
+    0.0
 };
 
 void ed_w_ctx_Init()
@@ -168,20 +207,20 @@ void ed_w_ctx_Init()
 //    ed_objects = create_stack_list(sizeof(struct ed_object_t), 512);
 //    ed_temp_objects = create_stack_list(sizeof(struct ed_object_t), 512);
     ed_object_handles = create_list(sizeof(struct ed_object_h), 512);
+    ed_transform_brush_face_indices = create_list(sizeof(uint32_t), 512);
     
     ed_contexts[ED_CONTEXT_WORLD].input_function = ed_w_ctx_Input;
     ed_contexts[ED_CONTEXT_WORLD].update_function = ed_w_ctx_Update;
+    ed_contexts[ED_CONTEXT_WORLD].layout_function = ed_w_ctx_Layout;
+    ed_contexts[ED_CONTEXT_WORLD].reset_function = ed_w_ctx_Reset;
     ed_contexts[ED_CONTEXT_WORLD].context_data = mem_Calloc(1, sizeof(struct ed_world_context_data_t));
     ed_contexts[ED_CONTEXT_WORLD].update_frame = 0xffffffff;
+    ed_contexts[ED_CONTEXT_WORLD].hold_focus = 0;
     
     struct ed_world_context_data_t *data;
     struct ed_world_context_sub_context_t *sub_context;
     
     data = ed_contexts[ED_CONTEXT_WORLD].context_data;
-    
-//    data->selections = mem_Calloc(ED_WORLD_CONTEXT_MODE_LAST, sizeof(struct list_t));
-//    data->selections[0] = create_list(sizeof(struct ed_object_h), 512);
-//    data->selections[1] = create_list(sizeof(struct ed_object_h), 512);
     data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].selections = create_list(sizeof(struct ed_object_h), 512);
     data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects = create_stack_list(sizeof(struct ed_object_t), 512);
     data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_BRUSH].selections = create_list(sizeof(struct ed_object_h), 512);
@@ -191,8 +230,7 @@ void ed_w_ctx_Init()
     data->current_selection_target = ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT;
     mat4_t_identity(&data->manipulator_state.transform);
     
-    
-    
+    bsh_Init();
     
 //    data->sub_contexts = mem_Calloc(ED_WORLD_CONTEXT_SUB_CONTEXT_LAST, sizeof(struct ed_world_context_sub_context_t));
     
@@ -288,458 +326,128 @@ void ed_w_ctx_Init()
     }
     
     
+    
+    struct geometry_data_t manipulator_data;
+    struct ed_manipulator_component_t *components;
+    struct r_chunk_h chunk;
+    
+    
     /* translation manipulator */
-    ed_translation_manipulator_verts = mem_Calloc(ED_TRANSLATION_MANIPULATOR_VERT_COUNT, sizeof(struct r_i_vertex_t));
-    ed_translation_manipulator_indices = mem_Calloc(ED_TRANSLATION_MANIPULATOR_INDICE_COUNT, sizeof(uint32_t));
+    load_wavefront("data/tmanip.obj", &manipulator_data);
     
-    #define MANIPULATOR_SHAFT_THICKNESS 0.05
+    ed_translation_manipulator_vert_count = manipulator_data.vertices.cursor * 3;
+    ed_manipulators[ED_TRANSFORM_TYPE_TRANSLATION].components = mem_Calloc(3, sizeof(struct ed_manipulator_component_t));
+    ed_manipulators[ED_TRANSFORM_TYPE_TRANSLATION].component_count = 3;
+    ed_manipulators[ED_TRANSFORM_TYPE_TRANSLATION].vertices = mem_Calloc(ed_translation_manipulator_vert_count, sizeof(struct r_i_vertex_t));;
+    components = ed_manipulators[ED_TRANSFORM_TYPE_TRANSLATION].components;
     
-    /* X axis */
-    ed_translation_manipulator_verts[0].position = vec4_t_c(0.5, MANIPULATOR_SHAFT_THICKNESS,-MANIPULATOR_SHAFT_THICKNESS, 1.0);
-    ed_translation_manipulator_verts[0].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[1].position = vec4_t_c(0.5, MANIPULATOR_SHAFT_THICKNESS, MANIPULATOR_SHAFT_THICKNESS, 1.0);
-    ed_translation_manipulator_verts[1].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[2].position = vec4_t_c(2.5, MANIPULATOR_SHAFT_THICKNESS, MANIPULATOR_SHAFT_THICKNESS, 1.0);
-    ed_translation_manipulator_verts[2].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[3].position = vec4_t_c(2.5, MANIPULATOR_SHAFT_THICKNESS,-MANIPULATOR_SHAFT_THICKNESS, 1.0);
-    ed_translation_manipulator_verts[3].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[4].position = vec4_t_c(0.5,-MANIPULATOR_SHAFT_THICKNESS,-MANIPULATOR_SHAFT_THICKNESS, 1.0);
-    ed_translation_manipulator_verts[4].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[5].position = vec4_t_c(0.5,-MANIPULATOR_SHAFT_THICKNESS, MANIPULATOR_SHAFT_THICKNESS, 1.0);
-    ed_translation_manipulator_verts[5].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[6].position = vec4_t_c(2.5,-MANIPULATOR_SHAFT_THICKNESS, MANIPULATOR_SHAFT_THICKNESS, 1.0);
-    ed_translation_manipulator_verts[6].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[7].position = vec4_t_c(2.5,-MANIPULATOR_SHAFT_THICKNESS,-MANIPULATOR_SHAFT_THICKNESS, 1.0);
-    ed_translation_manipulator_verts[7].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    
-    ed_translation_manipulator_verts[8].position = vec4_t_c(2.5, 0.2,-0.2, 1.0);
-    ed_translation_manipulator_verts[8].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[9].position = vec4_t_c(2.5,-0.2,-0.2, 1.0);
-    ed_translation_manipulator_verts[9].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[10].position = vec4_t_c(2.5,-0.2, 0.2, 1.0);
-    ed_translation_manipulator_verts[10].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[11].position = vec4_t_c(2.5, 0.2, 0.2, 1.0);
-    ed_translation_manipulator_verts[11].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[12].position = vec4_t_c(3.0, 0.0, 0.0, 1.0);
-    ed_translation_manipulator_verts[12].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    
-    ed_translation_manipulator_verts[13].position = vec4_t_c(0.4, 0.0, 0.4, 1.0);
-    ed_translation_manipulator_verts[13].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[14].position = vec4_t_c(0.4, 0.0, 0.8, 1.0);
-    ed_translation_manipulator_verts[14].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[15].position = vec4_t_c(0.8, 0.0, 0.8, 1.0);
-    ed_translation_manipulator_verts[15].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    ed_translation_manipulator_verts[16].position = vec4_t_c(0.8, 0.0, 0.4, 1.0);
-    ed_translation_manipulator_verts[16].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-    
-    
-    
-    /* manipulator shaft */
-    ed_translation_manipulator_indices[0]  = 0;
-    ed_translation_manipulator_indices[1]  = 1;
-    ed_translation_manipulator_indices[2]  = 2;
-    ed_translation_manipulator_indices[3]  = 2;
-    ed_translation_manipulator_indices[4]  = 3;
-    ed_translation_manipulator_indices[5]  = 0;
-    
-    ed_translation_manipulator_indices[6]  = 1;
-    ed_translation_manipulator_indices[7]  = 5;
-    ed_translation_manipulator_indices[8]  = 6;
-    ed_translation_manipulator_indices[9]  = 6;
-    ed_translation_manipulator_indices[10] = 2;
-    ed_translation_manipulator_indices[11] = 1;
-    
-    ed_translation_manipulator_indices[12] = 4;
-    ed_translation_manipulator_indices[13] = 7;
-    ed_translation_manipulator_indices[14] = 6;
-    ed_translation_manipulator_indices[15] = 6;
-    ed_translation_manipulator_indices[16] = 5;
-    ed_translation_manipulator_indices[17] = 4;
-    
-    ed_translation_manipulator_indices[18] = 0;
-    ed_translation_manipulator_indices[19] = 3;
-    ed_translation_manipulator_indices[20] = 7;
-    ed_translation_manipulator_indices[21] = 7;
-    ed_translation_manipulator_indices[22] = 4;
-    ed_translation_manipulator_indices[23] = 0;
-    
-    
-    /* manipulator tip */
-    ed_translation_manipulator_indices[24] = 8;
-    ed_translation_manipulator_indices[25] = 11;
-    ed_translation_manipulator_indices[26] = 12;
-    ed_translation_manipulator_indices[27] = 11;
-    ed_translation_manipulator_indices[28] = 10;
-    ed_translation_manipulator_indices[29] = 12;
-    
-    ed_translation_manipulator_indices[30] = 8;
-    ed_translation_manipulator_indices[31] = 12;
-    ed_translation_manipulator_indices[32] = 9;
-    ed_translation_manipulator_indices[33] = 9;
-    ed_translation_manipulator_indices[34] = 12;
-    ed_translation_manipulator_indices[35] = 10;
-    
-    ed_translation_manipulator_indices[36] = 8;
-    ed_translation_manipulator_indices[37] = 3;
-    ed_translation_manipulator_indices[38] = 2;
-    ed_translation_manipulator_indices[39] = 2;
-    ed_translation_manipulator_indices[40] = 11;
-    ed_translation_manipulator_indices[41] = 8;
-    
-    ed_translation_manipulator_indices[42] = 11;
-    ed_translation_manipulator_indices[43] = 2;
-    ed_translation_manipulator_indices[44] = 6;
-    ed_translation_manipulator_indices[45] = 6;
-    ed_translation_manipulator_indices[46] = 10;
-    ed_translation_manipulator_indices[47] = 11;
-    
-    ed_translation_manipulator_indices[48] = 7;
-    ed_translation_manipulator_indices[49] = 9;
-    ed_translation_manipulator_indices[50] = 10;
-    ed_translation_manipulator_indices[51] = 10;
-    ed_translation_manipulator_indices[52] = 6;
-    ed_translation_manipulator_indices[53] = 7;
-    
-    ed_translation_manipulator_indices[54] = 8;
-    ed_translation_manipulator_indices[55] = 9;
-    ed_translation_manipulator_indices[56] = 7;
-    ed_translation_manipulator_indices[57] = 7;
-    ed_translation_manipulator_indices[58] = 3;
-    ed_translation_manipulator_indices[59] = 8;
-    
-    
-    /* planes */
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT    ] = 13;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 1] = 14;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 2] = 15;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 3] = 15;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 4] = 16;
-    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 5] = 13;
-
-    /* Y axis */
-    for(uint32_t index = 0; index < ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT; index++)
+    verts = ed_manipulators[ED_TRANSFORM_TYPE_TRANSLATION].vertices;
+    components[0].id = ED_MANIPULATOR_AXIS_ID_X_AXIS;
+    components[0].start = 0;
+    components[0].count = manipulator_data.vertices.cursor;
+    for(uint32_t vert_index = 0; vert_index < manipulator_data.vertices.cursor; vert_index++)
     {
-        struct r_i_vertex_t *vert = ed_translation_manipulator_verts + index;
-        uint32_t offset = index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT;
-        ed_translation_manipulator_verts[offset].position.x = vert->position.z;
-        ed_translation_manipulator_verts[offset].position.y = vert->position.x;
-        ed_translation_manipulator_verts[offset].position.z = vert->position.y;
-        ed_translation_manipulator_verts[offset].position.w = 1.0;
-        ed_translation_manipulator_verts[offset].color = vec4_t_c(0.0, 1.0, 0.0, 1.0);
+        vec3_t *vert = get_list_element(&manipulator_data.vertices, vert_index);
+        verts[vert_index].position = vec4_t_c(vert->x, vert->y, vert->z, 1.0);
+        verts[vert_index].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
+    }
+    verts += manipulator_data.vertices.cursor;
+    components[1].id = ED_MANIPULATOR_AXIS_ID_Y_AXIS;
+    components[1].start = manipulator_data.vertices.cursor;
+    components[1].count = manipulator_data.vertices.cursor;
+    for(uint32_t vert_index = 0; vert_index < manipulator_data.vertices.cursor; vert_index++)
+    {
+        vec3_t *vert = get_list_element(&manipulator_data.vertices, vert_index);
+        verts[vert_index].position = vec4_t_c(vert->y, vert->x, vert->z, 1.0);
+        verts[vert_index].color = vec4_t_c(0.0, 1.0, 0.0, 1.0);
+    }
+    verts += manipulator_data.vertices.cursor;
+    components[2].id = ED_MANIPULATOR_AXIS_ID_Z_AXIS;
+    components[2].start = manipulator_data.vertices.cursor * 2;
+    components[2].count = manipulator_data.vertices.cursor;
+    for(uint32_t vert_index = 0; vert_index < manipulator_data.vertices.cursor; vert_index++)
+    {
+        vec3_t *vert = get_list_element(&manipulator_data.vertices, vert_index);
+        verts[vert_index].position = vec4_t_c(vert->z, vert->y, vert->x, 1.0);
+        verts[vert_index].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);
     }
     
-    /* Z axis */
-    for(uint32_t index = 0; index < ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT; index++)
+    chunk = r_AllocChunk(r_vertex_heap, sizeof(struct r_i_vertex_t) * ed_translation_manipulator_vert_count, sizeof(struct r_i_vertex_t));
+    r_FillBufferChunk(chunk, ed_manipulators[ED_TRANSFORM_TYPE_TRANSLATION].vertices, sizeof(struct r_i_vertex_t) * ed_translation_manipulator_vert_count, 0);
+    ed_manipulators[ED_TRANSFORM_TYPE_TRANSLATION].chunk = chunk;
+    
+    destroy_list(&manipulator_data.vertices);
+    destroy_list(&manipulator_data.normals);
+    destroy_list(&manipulator_data.tangents);
+    destroy_list(&manipulator_data.tex_coords);
+    destroy_list(&manipulator_data.batches);
+    
+    /*
+    =======================================================================================================
+    =======================================================================================================
+    =======================================================================================================
+    */
+    
+    /* rotation manipulator */
+    load_wavefront("data/rmanip.obj", &manipulator_data);
+    ed_rotation_manipulator_vert_count = manipulator_data.vertices.cursor * 3;
+    ed_manipulators[ED_TRANSFORM_TYPE_ROTATION].vertices = mem_Calloc(manipulator_data.vertices.cursor * 3, sizeof(struct r_i_vertex_t));
+    ed_manipulators[ED_TRANSFORM_TYPE_ROTATION].components = mem_Calloc(3, sizeof(struct ed_manipulator_component_t));
+    ed_manipulators[ED_TRANSFORM_TYPE_ROTATION].component_count = 3;
+    components = ed_manipulators[ED_TRANSFORM_TYPE_ROTATION].components;
+    
+    verts = ed_manipulators[ED_TRANSFORM_TYPE_ROTATION].vertices;
+    components[0].id = ED_MANIPULATOR_AXIS_ID_X_AXIS;
+    components[0].count = manipulator_data.vertices.cursor;
+    components[0].start = 0;
+    for(uint32_t vert_index = 0; vert_index < manipulator_data.vertices.cursor; vert_index++)
     {
-        struct r_i_vertex_t *vert = ed_translation_manipulator_verts + index;
-        uint32_t offset = index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2;
-        ed_translation_manipulator_verts[offset].position.y = vert->position.z;
-        ed_translation_manipulator_verts[offset].position.x = vert->position.y;
-        ed_translation_manipulator_verts[offset].position.z = vert->position.x;
-        ed_translation_manipulator_verts[offset].position.w = 1.0;
-        ed_translation_manipulator_verts[offset].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);
+        vec3_t *vert = get_list_element(&manipulator_data.vertices, vert_index);
+        verts[vert_index].position = vec4_t_c(vert->x, vert->y, vert->z, 1.0);
+        verts[vert_index].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
+    }
+    verts += manipulator_data.vertices.cursor;
+    components[1].id = ED_MANIPULATOR_AXIS_ID_Y_AXIS;
+    components[1].count = manipulator_data.vertices.cursor;
+    components[1].start = manipulator_data.vertices.cursor;
+    for(uint32_t vert_index = 0; vert_index < manipulator_data.vertices.cursor; vert_index++)
+    {
+        vec3_t *vert = get_list_element(&manipulator_data.vertices, vert_index);
+        verts[vert_index].position = vec4_t_c(vert->y, vert->x, vert->z, 1.0);
+        verts[vert_index].color = vec4_t_c(0.0, 1.0, 0.0, 1.0);
+    }
+    verts += manipulator_data.vertices.cursor;
+    components[2].id = ED_MANIPULATOR_AXIS_ID_Z_AXIS;
+    components[2].count = manipulator_data.vertices.cursor;
+    components[2].start = manipulator_data.vertices.cursor * 2;
+    for(uint32_t vert_index = 0; vert_index < manipulator_data.vertices.cursor; vert_index++)
+    {
+        vec3_t *vert = get_list_element(&manipulator_data.vertices, vert_index);
+        verts[vert_index].position = vec4_t_c(vert->z, vert->y, vert->x, 1.0);
+        verts[vert_index].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);
     }
     
-//    for(uint32_t index = 0; index < ED_TRANSLATION_MANIPULATOR_PLANE_VERT_COUNT; index++)
-//    {
-//        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT].color = vec4_t_c(0.0, 1.0, 0.0, 1.0);
-//        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT + ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);
-//        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2 + ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    }
+    chunk = r_AllocChunk(r_vertex_heap, sizeof(struct r_i_vertex_t) * ed_rotation_manipulator_vert_count, sizeof(struct r_i_vertex_t));
+    r_FillBufferChunk(chunk, ed_manipulators[ED_TRANSFORM_TYPE_ROTATION].vertices, sizeof(struct r_i_vertex_t) * ed_rotation_manipulator_vert_count, 0);
+    ed_manipulators[ED_TRANSFORM_TYPE_ROTATION].chunk = chunk;
     
-    uint32_t size = ED_TRANSLATION_MANIPULATOR_VERT_COUNT * sizeof(struct r_i_vertex_t);
-    ed_translation_manipulator_vert_chunk = r_AllocChunk(r_vertex_heap, size, sizeof(struct r_i_vertex_t));
-    r_FillBufferChunk(ed_translation_manipulator_vert_chunk, ed_translation_manipulator_verts, size, 0);
-    
-    size = ED_TRANSLATION_MANIPULATOR_INDICE_COUNT * sizeof(uint32_t);
-    ed_translation_manipulator_index_chunk = r_AllocChunk(r_index_heap, size, sizeof(uint32_t));
-    r_FillBufferChunk(ed_translation_manipulator_index_chunk, ed_translation_manipulator_indices, size, 0);
-    
-    
-    
-//    ed_w_ctx_CreateBrushObject(&data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects, &vec3_t_c(0.0, 0.0, 0.0), );    
-//    ed_WorldContextCreateBrushObject(&data->mode_data[ED_WORLD_CONTEXT_MODE_OBJECT].objects, &vec3_t_c(0.0, 0.0, 5.0));
-//    ed_WorldContextCreateBrushObject(&data->mode_data[ED_WORLD_CONTEXT_MODE_OBJECT].objects, &vec3_t_c(0.0, 0.0,-5.0));
+    destroy_list(&manipulator_data.vertices);
+    destroy_list(&manipulator_data.normals);
+    destroy_list(&manipulator_data.tangents);
+    destroy_list(&manipulator_data.tex_coords);
+    destroy_list(&manipulator_data.batches);
 }
 
 void ed_w_ctx_Input(void *context_data, struct ed_editor_window_t *window)
 {
     struct ed_world_context_data_t *data = (struct ed_world_context_data_t *)context_data;
-//    struct ed_editor_viewport_t *viewport = (struct ed_editor_viewport_t *)window;
     
-    
-    do
+    ed_w_ctx_StateFunction[data->context_state](data, window);
+        
+    if(data->just_changed_state)
     {
-        data->just_changed_state = 0;
-        ed_w_ctx_StateFunction[data->context_state](data, window);
+        data->just_changed_state--;
     }
-    while(data->just_changed_state);
-//    if(data->state_change_counter)
-//    {
-//        data->state_change_counter--;
-//    }
-    
-//    struct stack_list_t *objects = NULL;
-//    struct list_t *selections = NULL;
-    
-//    if(in_GetMouseState(IN_MOUSE_BUTTON_MIDDLE) & IN_INPUT_STATE_PRESSED)
-//    {
-//        ed_FlyView((struct ed_editor_viewport_t *)window);
-//    }
-//    else
-//    {
-//        if(in_GetMouseState(IN_MOUSE_BUTTON_MIDDLE) & IN_INPUT_STATE_JUST_RELEASED)
-//        {
-//            in_RelativeMode(0);
-//        }
-//
-//        uint32_t shift_pressed = in_GetKeyState(SDL_SCANCODE_LSHIFT) & IN_INPUT_STATE_PRESSED;
-//        uint32_t left_mouse_state = in_GetMouseState(IN_MOUSE_BUTTON_LEFT) & (IN_INPUT_STATE_JUST_RELEASED | IN_INPUT_STATE_JUST_PRESSED);
-//        uint32_t right_mouse_state = in_GetMouseState(IN_MOUSE_BUTTON_RIGHT) & IN_INPUT_STATE_JUST_RELEASED;
-//        
-//        if((left_mouse_state || right_mouse_state) && !(data->manipulating))
-//        {
-//            /* object picking happens if the mouse button is released, and we weren't previously
-//            manipulating something. Manipulator picking happens when the left button is pressed, and
-//            we weren't previously manipulating something */
-//            
-//            mat4_t transform;
-//            mat4_t_identity(&transform);
-//            uint32_t picked_axis = ed_w_ctx_PickManipulator(&data->manipulator_state.transform, data->manipulator_state.transform_type, viewport);
-//            
-//            data->axis_constraint = 0;
-//            
-//            if((left_mouse_state & IN_INPUT_STATE_JUST_PRESSED) && picked_axis)
-//            {
-//                /* manipulator picking happens when the left button is pressed */
-//                data->manipulator_state.picked_axis = picked_axis;
-//                data->axis_constraint = picked_axis;
-//            }
-//            else
-//            {
-//                ed_object_handles.cursor = 0;
-//                
-//                if(left_mouse_state & IN_INPUT_STATE_JUST_RELEASED)
-//                {
-//                    /* object picking happens when the left button is released */
-//                    data->current_selection_target = ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT;
-//                    objects = &data->target_data[data->current_selection_target].objects;
-//                    for(uint32_t object_index = 0; object_index < objects->cursor; object_index++)
-//                    {
-//                        if(ed_w_ctx_GetObjectPointer(objects, (struct ed_object_h){object_index}))
-//                        {
-//                            add_list_element(&ed_object_handles, &(struct ed_object_h){object_index});
-//                        }
-//                    }
-//                }
-//                else if(right_mouse_state & IN_INPUT_STATE_JUST_RELEASED)
-//                {
-//                    /* brush face picking happens when the right button is released */
-//                    data->current_selection_target = ED_WORLD_CONTEXT_SELECTION_TARGET_BRUSH;
-//                    objects = &data->target_data[data->current_selection_target].objects;
-//                    
-//                    objects->cursor = 0;
-//                    objects->free_stack_top = 0xffffffff;
-//                    
-//                    for(uint32_t object_index = 0; object_index < data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects.cursor; object_index++)
-//                    {
-//                        struct ed_object_t *object = ed_w_ctx_GetObjectPointer(&data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects, (struct ed_object_h){object_index});
-//                        if(object && object->type == ED_OBJECT_TYPE_BRUSH)
-//                        {
-//                            struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
-//                            struct ed_brush_face_t *polygon = brush->polygons;
-//                            uint32_t polygon_index = 0;
-//                            while(polygon)
-//                            {
-//                                struct ed_object_h face_handle = ed_w_ctx_CreateObject(objects, 
-//                                                    &object->transform, ED_OBJECT_TYPE_FACE, 0, 0, 0, 0, 
-//                                                        (union ed_object_ref_t){.brush = object->object.brush, .face_index = polygon_index});
-//                                struct ed_object_t *face_object = ed_w_ctx_GetObjectPointer(objects, face_handle);
-//                                face_object->start = polygon->draw_indices_start + brush->start;
-//                                face_object->count = polygon->draw_indices_count;
-//                                face_object->vertex_count = polygon->indice_count;
-//                                face_object->vertex_offset = object->vertex_offset;
-//                                add_list_element(&ed_object_handles, &face_handle);
-//                                polygon = polygon->next;
-//                                polygon_index++;
-//                            }
-//                        }
-//                    }
-//                }
-//                selections = &data->target_data[data->current_selection_target].selections;
-//                struct ed_object_h selection = ed_w_ctx_PickObject(objects, &ed_object_handles, viewport);
-//                
-//                switch(data->current_selection_target)
-//                {
-//                    case ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT:
-//                        ed_w_ctx_AppendObjectSelection(selections, selection, shift_pressed);
-//                    break;
-//                    
-//                    case ED_WORLD_CONTEXT_SELECTION_TARGET_BRUSH:
-//                        ed_w_ctx_AppendBrushSelection(selections, selection, shift_pressed);
-//                    break;
-//                }
-//            }
-//        }
-//        
-//        selections = &data->target_data[data->current_selection_target].selections;
-//        objects = &data->target_data[data->current_selection_target].objects;
-//        
-//        
-//        if(selections->cursor)
-//        {
-//            data->manipulator_state.transform.rows[3] = vec4_t_c(0.0, 0.0, 0.0, 0.0);   
-//            
-//            switch(data->current_selection_target)
-//            {
-//                case ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT:
-//                    for(uint32_t object_index = 0; object_index < selections->cursor; object_index++)
-//                    {
-//                        struct ed_object_h handle = *(struct ed_object_h *)get_list_element(selections, object_index);
-//                        struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, handle);
-//                        vec4_t_add(&data->manipulator_state.transform.rows[3], &data->manipulator_state.transform.rows[3], &object->transform.rows[3]);
-//                    }
-//                break;
-//                
-//                case ED_WORLD_CONTEXT_SELECTION_TARGET_BRUSH:
-//                    for(uint32_t object_index = 0; object_index < selections->cursor; object_index++)
-//                    {
-//                        struct ed_object_h handle = *(struct ed_object_h *)get_list_element(selections, object_index);
-//                        struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, handle);
-//                        struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
-//                        struct ed_brush_face_t *face = ed_GetBrushFacePointer(object->object.brush, object->object.face_index);
-//                        
-//                        vec3_t face_position = vec3_t_c(0.0, 0.0, 0.0);
-//                        for(uint32_t vert_index = 0; vert_index < face->indice_count; vert_index++)
-//                        {
-//                            vec3_t_add(&face_position, &face_position, brush->vertices + face->indices[vert_index]);
-//                        }
-//                        face_position.x /= (float)face->indice_count;
-//                        face_position.y /= (float)face->indice_count;
-//                        face_position.z /= (float)face->indice_count;  
-//                        
-//                        vec4_t_add(&data->manipulator_state.transform.rows[3], &data->manipulator_state.transform.rows[3], &object->transform.rows[3]);
-//                        data->manipulator_state.transform.rows[3].x += face_position.x;
-//                        data->manipulator_state.transform.rows[3].y += face_position.y;
-//                        data->manipulator_state.transform.rows[3].z += face_position.z;
-//                    }
-//                break;
-//            }
-//            
-//            data->manipulator_state.transform.rows[3].x /= (float)selections->cursor;
-//            data->manipulator_state.transform.rows[3].y /= (float)selections->cursor;
-//            data->manipulator_state.transform.rows[3].z /= (float)selections->cursor;
-//            data->manipulator_state.transform.rows[3].w = 1.0;
-//                
-//            if(in_GetMouseState(IN_MOUSE_BUTTON_LEFT) & IN_INPUT_STATE_PRESSED)
-//            {
-//                vec3_t manipulator_pos = vec3_t_c_vec4_t(&data->manipulator_state.transform.rows[3]);
-//                vec3_t plane_point;
-//                vec3_t camera_pos = vec3_t_c_vec4_t(&viewport->view_matrix.rows[3]);
-//                vec3_t camera_plane_vec;
-//                vec3_t drag_delta;
-//                
-//                float fovy = 0.68;
-//                float aspect = (float)viewport->width / (float)viewport->height;
-//                float top = tanf(fovy) * 0.1;
-//                float right = top * aspect;
-//                
-//                vec3_t right_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[0]);
-//                vec3_t up_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[1]);
-//                vec3_t forward_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[2]);
-//                vec3_t mouse_vec = vec3_t_c(0.0, 0.0, 0.0);
-//
-//                float mouse_x = ((float)viewport->mouse_x / (float)viewport->width) * 2.0 - 1.0;
-//                float mouse_y = 1.0 - ((float)viewport->mouse_y / (float)viewport->height) * 2.0;
-//                
-//                vec3_t_mul(&right_vec, &right_vec, right * mouse_x);
-//                vec3_t_mul(&up_vec, &up_vec, top * mouse_y);
-//                vec3_t_mul(&forward_vec, &forward_vec, -0.1);
-//                
-//                vec3_t_add(&mouse_vec, &right_vec, &up_vec);
-//                vec3_t_add(&mouse_vec, &mouse_vec, &forward_vec);
-//                vec3_t_normalize(&mouse_vec, &mouse_vec);
-//                vec3_t_sub(&camera_plane_vec, &manipulator_pos, &camera_pos);
-//                
-//                if(left_mouse_state & IN_INPUT_STATE_JUST_PRESSED)
-//                {
-//                    vec3_t plane_normal;
-//                    if(data->axis_constraint)
-//                    {
-//                        data->axis_clamp = ed_manipulator_plane_normal[data->axis_constraint];
-//                        plane_normal = ed_manipulator_plane_normal[data->axis_constraint];
-//                        
-//                        float dist = vec3_t_dot(&camera_plane_vec, &plane_normal);
-//                        vec3_t_fmadd(&plane_point, &manipulator_pos, &plane_normal, -dist);
-//                        vec3_t_sub(&plane_normal, &camera_pos, &plane_point);
-//                        vec3_t_normalize(&data->pick_normal, &plane_normal);
-//                    }
-//                    else
-//                    {
-//                        data->axis_clamp = vec3_t_c(1.0, 1.0, 1.0);
-//                        data->pick_normal = forward_vec;
-//                    }
-//                }
-//                
-//                
-//                
-//                float d = vec3_t_dot(&mouse_vec, &data->pick_normal);
-//                float t = 0.0;
-//                
-//                if(d)
-//                {
-//                    t = vec3_t_dot(&camera_plane_vec, &data->pick_normal) / d;                
-//                }
-//                
-//                vec3_t_fmadd(&plane_point, &camera_pos, &mouse_vec, t);
-//                
-//                if(left_mouse_state & IN_INPUT_STATE_JUST_PRESSED)
-//                {
-//                    vec3_t_sub(&data->pick_offset, &manipulator_pos, &plane_point);
-//                }
-//                
-//                vec3_t_add(&plane_point, &plane_point, &data->pick_offset);
-//                vec3_t_sub(&drag_delta, &plane_point, &manipulator_pos);
-//                drag_delta.x *= data->axis_clamp.x;
-//                drag_delta.y *= data->axis_clamp.y;
-//                drag_delta.z *= data->axis_clamp.z;
-//                
-//                if(in_GetDragState() & IN_DRAG_STATE_JUST_STARTED_DRAGGING)
-//                {
-//                    /* to avoid having objects being unselected once the user releases the button, 
-//                    we keep track of whether the release happens while we're manipulating */
-//                    data->manipulating = 1;
-//                }
-//                
-//                mat4_t transform;
-//                mat4_t_identity(&transform);
-//                
-//                transform.rows[3] = vec4_t_c(drag_delta.x, drag_delta.y, drag_delta.z, 1.0);
-//                
-//                ed_w_ctx_ApplyTransform(&transform, objects, selections, ED_TRANSFORM_TYPE_TRANSLATION, ED_TRANSFORM_MODE_WORLD);
-//            }
-//            else
-//            {
-//                data->manipulating = 0;
-//            }
-//        }
-//    }
 }
 
 void ed_w_ctx_Update(void *context_data, struct ed_editor_window_t *window)
@@ -807,11 +515,11 @@ void ed_w_ctx_Update(void *context_data, struct ed_editor_window_t *window)
         grid_verts += 5;
     }
     
-    if(selections->cursor)
-    {
-        struct stack_list_t *objects = &data->target_data[data->current_selection_target].objects;
-        struct list_t *selections = &data->target_data[data->current_selection_target].selections;
+    objects = &data->target_data[data->current_selection_target].objects;
+    selections = &data->target_data[data->current_selection_target].selections;
     
+    if(selections->cursor)
+    {    
         if(data->current_selection_target == ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT)
         {
             draw_state.line_width = ed_selected_object_outline_draw_state.line_width;
@@ -845,7 +553,6 @@ void ed_w_ctx_Update(void *context_data, struct ed_editor_window_t *window)
                     ed_max_outline_indices = object->count;
                     ed_outline_indices = mem_Realloc(ed_outline_indices, sizeof(uint32_t) * ed_max_outline_indices);
                 }
-            
                 
                 switch(object->type)
                 {
@@ -887,6 +594,7 @@ void ed_w_ctx_Update(void *context_data, struct ed_editor_window_t *window)
                 {
                     ed_max_outline_verts = object->vertex_count;
                     ed_outline_verts = mem_Realloc(ed_outline_verts, sizeof(struct r_i_vertex_t) * ed_max_outline_verts);
+                    mem_CheckGuards();
                 }
                 
                 if(object->count > ed_max_outline_indices)
@@ -938,15 +646,14 @@ void ed_w_ctx_Update(void *context_data, struct ed_editor_window_t *window)
         r_i_SetDrawState(&draw_state);
         
         mat4_t draw_transform;
-        ed_w_ctx_ManipulatorDrawTransform(&draw_transform, &data->manipulator_state.transform, viewport);
+        ed_w_ctx_ManipulatorDrawTransform(&draw_transform, &data->manipulator_state, viewport);
         
-        struct ed_manipulator_t *manipulator = ed_manipulators + ED_TRANSFORM_TYPE_TRANSLATION;
+        struct ed_manipulator_t *manipulator = ed_manipulators + data->manipulator_state.transform_type;
         for(uint32_t component_index = 0; component_index < manipulator->component_count; component_index++)
         {
             struct ed_manipulator_component_t *component = manipulator->components + component_index;
-            r_i_DrawImmediate(ed_translation_manipulator_verts + component->vertex_start, ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT,
-                              ed_translation_manipulator_indices, component->count, &draw_transform);
-        } 
+            r_i_DrawImmediate(manipulator->vertices + component->start, component->count, NULL, 0, &draw_transform);
+        }
     }
     
     
@@ -982,13 +689,154 @@ void ed_w_ctx_Update(void *context_data, struct ed_editor_window_t *window)
     r_i_EndSubmission();
 }
 
+uint32_t ed_w_ctx_Layout(void *context_data, struct ed_editor_window_t *window)
+{
+    struct ed_world_context_data_t *data = (struct ed_world_context_data_t *)context_data;
+    struct ed_editor_viewport_t *viewport = (struct ed_editor_viewport_t *)window;
+    char window_name[256];
+    int32_t mouse_x;
+    int32_t mouse_y;
+    uint32_t hovered = 0;
+    
+    in_GetMousePos(&mouse_x, &mouse_y);
+    
+    sprintf(window_name, "Viewport-%p", viewport);
+    igSetNextWindowSize((ImVec2){(float)viewport->width, (float)viewport->height}, ImGuiCond_Once);
+    ImGuiStyle *style = igGetStyle();
+    uint32_t window_flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoTitleBar;
+    
+    if(data->selection_area_active)
+    {
+        window_flags |= ImGuiWindowFlags_NoMove;
+    }
+    
+    ImVec2 size;
+    igGetContentRegionAvail(&size);
+    
+    igPushStyleVarFloat(ImGuiStyleVar_IndentSpacing, 0.0);
+    igPushStyleVarVec2(ImGuiStyleVar_WindowPadding, (ImVec2){8.0, 8.0});
+    igPushStyleVarFloat(ImGuiStyleVar_WindowRounding, 0.0);
+    
+//    if(igBeginChildStr(window_name, (ImVec2){viewport->width, viewport->height}, 1, window_flags))
+    if(igBegin(window_name, NULL, window_flags))
+    {
+        igPopStyleVar(3);
+        
+        if(igBeginChildStr("buttons", (ImVec2){viewport->width, 20.0}, 0, 0))
+        {
+            char preview_str[256];
+            float *thresholds;
+            uint32_t thresholds_count;
+            float *snapping_value;
+            float preview_value;
+            char *label;
+            
+            
+            switch(data->manipulator_state.transform_type)
+            {
+                case ED_TRANSFORM_TYPE_TRANSLATION:
+                    thresholds = ed_linear_thresholds;
+                    thresholds_count = sizeof(ed_linear_thresholds) / sizeof(ed_linear_thresholds[0]);
+                    snapping_value = &data->manipulation_state.linear_threshold;
+                    label = "Linear snapping";
+                    preview_value = data->manipulation_state.linear_threshold;
+                break;
+                
+                case ED_TRANSFORM_TYPE_ROTATION:
+                    thresholds = ed_angular_thresholds;
+                    thresholds_count = sizeof(ed_linear_thresholds) / sizeof(ed_linear_thresholds[0]);
+                    snapping_value = &data->manipulation_state.angular_threshold;
+                    label = "Angular snapping";
+                    preview_value = data->manipulation_state.angular_threshold;
+                break;
+            }
+            
+            sprintf(preview_str, "%0.2f", preview_value);
+            igSetNextItemWidth(80.0);
+            if(igBeginCombo(label, preview_str, 0))
+            {
+                for(uint32_t value_index = 0; value_index < thresholds_count; value_index++)
+                {
+                    sprintf(preview_str, "%0.2f", thresholds[value_index]);
+                    if(igSelectableBool(preview_str, 0, 0, (ImVec2){0.0, 0.0}))
+                    {
+                        *snapping_value = thresholds[value_index];
+                    }
+                }
+                
+                igEndCombo();
+            }
+
+        }
+        igEndChild();
+        
+        igSeparator();
+        
+        struct r_framebuffer_t *framebuffer = r_GetFramebufferPointer(viewport->framebuffer);
+        struct r_texture_t *texture = r_GetTexturePointer(framebuffer->textures[0]);
+        ImTextureID texture_id = (void *)framebuffer->textures[0].index;
+        if(igBeginChildStr("viewport", (ImVec2){0.0, 0.0}, 0, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            ImVec2 content_min;
+            ImVec2 content_max;
+            igGetContentRegionAvail(&content_max);
+            
+            if(viewport->width != (uint32_t)content_max.x || (uint32_t)viewport->height != content_max.y)
+            {
+                viewport->width = (uint32_t)content_max.x;
+                viewport->height = (uint32_t)content_max.y;
+                r_ResizeFramebuffer(viewport->framebuffer, viewport->width, viewport->height);
+            }
+            
+            igImage(texture_id, (ImVec2){(float) viewport->width, (float) viewport->height}, 
+                (ImVec2){0.0, 0.0}, (ImVec2){1.0, 1.0}, (ImVec4){1.0, 1.0, 1.0, 1.0}, (ImVec4){0.0, 0.0, 0.0, 0.0});
+                
+            if(window->focused)
+            {
+                data->selection_area_active = igIsItemHovered(0);
+            }
+            
+            ImVec2 position;
+            igGetItemRectMin(&position);
+            
+            viewport->x = position.x;
+            viewport->y = position.y;
+            viewport->mouse_x = mouse_x - viewport->x;
+            viewport->mouse_y = mouse_y - viewport->y;
+        }
+        igEndChild();
+        
+        hovered = igIsWindowHovered(ImGuiHoveredFlags_ChildWindows);
+    }
+    igEnd();
+    
+    return hovered;
+}
+
+void ed_w_ctx_Reset(void *context_data)
+{
+    struct ed_world_context_data_t *data = (struct ed_world_context_data_t *)context_data;
+    struct stack_list_t *objects = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects;
+    for(uint32_t object_index = 0; object_index < objects->cursor; object_index++)
+    {
+        ed_w_ctx_DestroyObject(objects, ED_OBJECT_HANDLE(object_index));
+    }
+    data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].selections.cursor = 0;
+    data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_BRUSH].objects.cursor = 0;
+    data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].selections.cursor = 0;
+    
+    data->context_state = ED_WORLD_CONTEXT_STATE_IDLE;
+    data->just_changed_state = 0;
+    data->current_selection_target = ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT;
+}
+
 /*
 ===========================================================================================================================================
 ===========================================================================================================================================
 ===========================================================================================================================================
 */
 
-struct ed_object_h ed_w_ctx_CreateObject(struct stack_list_t *objects, mat4_t *transform, uint32_t type, uint32_t start, uint32_t count, uint32_t vertex_count, uint32_t vertex_offset, union ed_object_ref_t object_ref)
+struct ed_object_h ed_w_ctx_CreateObject(struct stack_list_t *objects, mat4_t *transform, uint32_t type, uint32_t start, uint32_t count, uint32_t vertex_count, uint32_t vertex_offset, uint32_t topology, union ed_object_ref_t object_ref)
 {
     struct ed_object_h handle;
     struct ed_object_t *object;
@@ -1002,19 +850,29 @@ struct ed_object_h ed_w_ctx_CreateObject(struct stack_list_t *objects, mat4_t *t
     object->vertex_count = vertex_count;
     object->vertex_offset = vertex_offset;
     object->transform = *transform;
+    object->topology = topology;
     object->object = object_ref;
-    
-//    handle.index += ED_OBJECT_ID_LAST;
-    
-//    struct ed_world_context_data_t *data = (struct ed_world_context_data_t *)ed_contexts[ED_CONTEXT_WORLD].context_data;
-//    add_list_element(&ed_objects, &handle);
     
     return handle;
 }
 
 void ed_w_ctx_DestroyObject(struct stack_list_t *objects, struct ed_object_h handle)
 {
+    struct ed_object_t *object;
     
+    object = ed_w_ctx_GetObjectPointer(objects, handle);
+    if(object)
+    {
+        switch(object->type)
+        {
+            case ED_OBJECT_TYPE_BRUSH:
+                bsh_DestroyBrush(object->object.brush);
+            break;
+        }
+        
+        object->type = ED_OBJECT_TYPE_LAST;
+        remove_stack_list_element(objects, handle.index);
+    }
 }
 
 struct ed_object_h ed_w_ctx_CreateBrushObject(struct stack_list_t *objects, vec3_t *position, vec3_t *size)
@@ -1029,15 +887,55 @@ struct ed_object_h ed_w_ctx_CreateBrushObject(struct stack_list_t *objects, vec3
     mat3_t_identity(&orientation);
     brush_handle = bsh_CreateCubeBrush(position, &orientation, size);
     brush = ed_GetBrushPointer(brush_handle);
-    
-//    mat4_t_identity(&scale);
-//    scale.rows[0].x = brush->scale.x;
-//    scale.rows[1].y = brush->scale.y;
-//    scale.rows[2].z = brush->scale.z;
     mat4_t_comp(&transform, &brush->orientation, &brush->position);
-//    mat4_t_mul(&transform, &scale, &transform);
     
-    return ed_w_ctx_CreateObject(objects, &transform, ED_OBJECT_TYPE_BRUSH, brush->start, brush->count, brush->draw_vertice_count, brush->vertex_offset, (union ed_object_ref_t){.brush = brush_handle});
+    return ed_w_ctx_CreateObject(objects, &transform, ED_OBJECT_TYPE_BRUSH, brush->start, brush->count, brush->draw_vertice_count, brush->vertex_offset, 
+                                    VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, (union ed_object_ref_t){.brush = brush_handle});
+}
+
+struct ed_object_h ed_w_ctx_CreateBrushFaceObject(struct stack_list_t *objects, mat4_t *transform, struct bsh_brush_h handle, uint32_t face_index)
+{
+    struct ed_brush_t *brush = ed_GetBrushPointer(handle);
+    struct ed_brush_face_t *face = ed_GetBrushFacePointer(handle, face_index);
+    union ed_object_ref_t ref = (union ed_object_ref_t){.brush = handle, .face_index = face_index};
+    
+    struct ed_object_h face_handle = ed_w_ctx_CreateObject(objects, transform, ED_OBJECT_TYPE_FACE, 0, 0, 0, 0, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, ref);
+    struct ed_object_t *face_object = ed_w_ctx_GetObjectPointer(objects, face_handle);
+    face_object->start = face->draw_indices_start + brush->start;
+    face_object->count = face->draw_indices_count;
+    face_object->vertex_count = face->indice_count;
+    face_object->vertex_offset = brush->vertex_offset;
+    
+    return face_handle;
+}
+
+struct ed_object_h ed_w_ctx_CreateBrushEdgeObject(struct stack_list_t *objects, struct bsh_brush_h handle, uint32_t face_index, uint32_t edge_index)
+{
+//    struct ed_brush_t *brush = ed_GetBrushPointer(handle);
+//    struct ed_brush_face_t *face = ed_GetBrushFacePointer(handle, face_index);
+//    union ed_object_ref_t ref = (union ed_object_ref_t){.brush = handle, .face_index = face_index};
+//    
+//    struct ed_object_h edge_handle = ed_w_ctx_CreateObject(objects, transform, ED_OBJECT_TYPE_EDGE, 0, 0, 0, 0, VK_PRIMITIVE_TOPOLOGY_LINE_LIST, ref);
+//    struct ed_object_t *edge_object = ed_w_ctx_GetObjectPointer(objects, edge_handle);
+//    edge_object->start = face->draw_indices_start + brush->start;
+//    edge_object->count = 2;
+//    edge_object->vertex_count = 2;
+//    edge_object->vertex_offset = brush->vertex_offset;
+}
+
+struct ed_object_h ed_w_ctx_CreateBrushObjectFromBrush(struct stack_list_t *objects, struct bsh_brush_h handle)
+{
+    struct ed_brush_t *brush;
+    mat3_t orientation;
+    mat4_t transform;
+    mat4_t scale;
+    
+    mat3_t_identity(&orientation);
+    brush = ed_GetBrushPointer(handle);
+    mat4_t_comp(&transform, &brush->orientation, &brush->position);
+    
+    return ed_w_ctx_CreateObject(objects, &transform, ED_OBJECT_TYPE_BRUSH, brush->start, brush->count, 
+                                 brush->draw_vertice_count, brush->vertex_offset, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, (union ed_object_ref_t){.brush = handle});
 }
 
 struct ed_object_t *ed_w_ctx_GetObjectPointer(struct stack_list_t *objects, struct ed_object_h handle)
@@ -1064,14 +962,14 @@ struct ed_object_t *ed_w_ctx_GetObjectPointer(struct stack_list_t *objects, stru
 void ed_w_ctx_SetState(struct ed_world_context_data_t *data, uint32_t state)
 {
     data->context_state = state;
-    data->just_changed_state = 1;
+    data->just_changed_state = 2;
 }
 
 void ed_w_ctx_IdleState(struct ed_world_context_data_t *data, struct ed_editor_window_t *window)
 {
     data->selection = ED_INVALID_OBJECT_HANDLE;
     data->manipulation_state.setup = 0;
-    data->manipulation_state.axis_constraint = 0;
+    data->manipulation_state.axis_constraint = vec3_t_c(0.0, 0.0, 0.0);
     data->creating_brush_state.setup = 0;
 
     if(in_GetMouseState(IN_MOUSE_BUTTON_MIDDLE) & IN_INPUT_STATE_PRESSED)
@@ -1086,25 +984,49 @@ void ed_w_ctx_IdleState(struct ed_world_context_data_t *data, struct ed_editor_w
     {
         ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_RIGHT_CLICK);
     }
+    else if(in_GetKeyState(SDL_SCANCODE_LSHIFT) & IN_INPUT_STATE_PRESSED)
+    {
+        if(in_GetKeyState(SDL_SCANCODE_D) & IN_INPUT_STATE_JUST_PRESSED)
+        {
+            ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_COPYING_SELECTIONS);
+        }
+    }
+    else if(in_GetKeyState(SDL_SCANCODE_DELETE) & IN_INPUT_STATE_JUST_PRESSED)
+    {
+        ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_DELETING_SELECTIONS);
+    }
+    else if(in_GetKeyState(SDL_SCANCODE_G) & IN_INPUT_STATE_JUST_PRESSED)
+    {
+        data->manipulator_state.transform_type = ED_TRANSFORM_TYPE_TRANSLATION;
+    }
+    else if(in_GetKeyState(SDL_SCANCODE_R) & IN_INPUT_STATE_JUST_PRESSED)
+    {
+        data->manipulator_state.transform_type = ED_TRANSFORM_TYPE_ROTATION;
+    }
 }
 
 void ed_w_ctx_LeftClickState(struct ed_world_context_data_t *data, struct ed_editor_window_t *window)
 {
     /* object picking happens when the left button is released */
     uint32_t mouse_state = in_GetMouseState(IN_MOUSE_BUTTON_LEFT) & (IN_INPUT_STATE_JUST_PRESSED | IN_INPUT_STATE_PRESSED | IN_INPUT_STATE_JUST_RELEASED);
-
-    if(mouse_state & IN_INPUT_STATE_JUST_PRESSED)
+    
+    if(!data->selection_area_active)
+    {
+        ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_IDLE);
+    }
+    
+    if(data->just_changed_state)
     {
         uint32_t picked_axis = 0;
         
         if(data->target_data[data->current_selection_target].selections.cursor)
         {
-            picked_axis = ed_w_ctx_PickManipulator(&data->manipulator_state.transform, data->manipulator_state.transform_type, (struct ed_editor_viewport_t *)window);
+            picked_axis = ed_w_ctx_PickManipulator(&data->manipulator_state, (struct ed_editor_viewport_t *)window);
         }
         
         if(picked_axis)
         {
-            data->manipulation_state.axis_constraint = picked_axis;
+            data->manipulation_state.axis_constraint = ed_manipulator_plane_normal[picked_axis];
             ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_MANIPULATING);
         }
         else
@@ -1123,18 +1045,22 @@ void ed_w_ctx_LeftClickState(struct ed_world_context_data_t *data, struct ed_edi
             data->selection = ed_w_ctx_PickObject(objects, &ed_object_handles, (struct ed_editor_viewport_t *)window);
         }
     }
-    else if(mouse_state & IN_INPUT_STATE_PRESSED)
+    else if((mouse_state & IN_INPUT_STATE_PRESSED) && (in_GetDragState() & IN_DRAG_STATE_DRAGGING))
     {
-        if(in_GetDragState() & IN_DRAG_STATE_DRAGGING)
+        if(data->target_data[data->current_selection_target].selections.cursor)
         {
-            if(data->target_data[data->current_selection_target].selections.cursor)
+            if(data->current_selection_target == ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT)
             {
                 ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_MANIPULATING);
             }
-            else
+            else if(in_GetKeyState(SDL_SCANCODE_LSHIFT) & IN_INPUT_STATE_PRESSED)
             {
-                ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_CREATING_BRUSH);
+                ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_EXTRUDING_BRUSH_FACES);
             }
+        }
+        else
+        {
+            ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_CREATING_BRUSH);
         }
     }
     else if(mouse_state & IN_INPUT_STATE_JUST_RELEASED)
@@ -1147,7 +1073,13 @@ void ed_w_ctx_RightClickState(struct ed_world_context_data_t *data, struct ed_ed
 {
     /* brush face picking happens when the right button is released */
     uint32_t mouse_state = in_GetMouseState(IN_MOUSE_BUTTON_RIGHT) & (IN_INPUT_STATE_JUST_PRESSED | IN_INPUT_STATE_PRESSED | IN_INPUT_STATE_JUST_RELEASED);
-    if(mouse_state & IN_INPUT_STATE_JUST_PRESSED)
+    
+    if(!data->selection_area_active)
+    {
+        ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_IDLE);
+    }
+    
+    if(data->just_changed_state)
     {
         /* brush face picking happens when the right button is released */
         struct stack_list_t *objects = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_BRUSH].objects;
@@ -1162,27 +1094,23 @@ void ed_w_ctx_RightClickState(struct ed_world_context_data_t *data, struct ed_ed
             if(object && object->type == ED_OBJECT_TYPE_BRUSH)
             {
                 struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
-                struct ed_brush_face_t *polygon = brush->polygons;
-                uint32_t polygon_index = 0;
-                while(polygon)
+                for(uint32_t face_index = 0; face_index < brush->polygon_count; face_index++)
                 {
-                    struct ed_object_h face_handle = ed_w_ctx_CreateObject(objects, 
-                                        &object->transform, ED_OBJECT_TYPE_FACE, 0, 0, 0, 0, 
-                                            (union ed_object_ref_t){.brush = object->object.brush, .face_index = polygon_index});
-                    struct ed_object_t *face_object = ed_w_ctx_GetObjectPointer(objects, face_handle);
-                    face_object->start = polygon->draw_indices_start + brush->start;
-                    face_object->count = polygon->draw_indices_count;
-                    face_object->vertex_count = polygon->indice_count;
-                    face_object->vertex_offset = object->vertex_offset;
+                    struct ed_object_h face_handle = ed_w_ctx_CreateBrushFaceObject(objects, &object->transform, object->object.brush, face_index);
                     add_list_element(&ed_object_handles, &face_handle);
-                    polygon = polygon->next;
-                    polygon_index++;
                 }
             }
         }
         
         data->selection = ed_w_ctx_PickObject(objects, &ed_object_handles, (struct ed_editor_viewport_t *)window);
     }
+//    else if(mouse_state & IN_INPUT_STATE_PRESSED)
+//    {
+//        if(!data->target_data[data->current_selection_target].selections.cursor && (in_GetDragState() & IN_DRAG_STATE_DRAGGING))
+//        {
+//            ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_CREATING_BRUSH);
+//        }
+//    }
     else if(mouse_state & IN_INPUT_STATE_JUST_RELEASED)
     {
         ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_PICK_BRUSH_FACE);
@@ -1193,6 +1121,8 @@ void ed_w_ctx_PickObjectState(struct ed_world_context_data_t *data, struct ed_ed
 {
     struct stack_list_t *objects = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects;
     struct list_t *selections = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].selections;
+    
+    data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_BRUSH].selections.cursor = 0;
     
     ed_object_handles.cursor = 0;
     add_list_element(&ed_object_handles, &data->selection);
@@ -1208,10 +1138,19 @@ void ed_w_ctx_PickObjectState(struct ed_world_context_data_t *data, struct ed_ed
     ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_IDLE);
 }
 
+int32_t ed_w_ctx_CompareBrushFaceObjectRef(void *a, void *b)
+{
+    union ed_object_ref_t *ref_a = (union ed_object_ref_t *)a;
+    union ed_object_ref_t *ref_b = (union ed_object_ref_t *)b;
+    return ref_a->brush.index - ref_b->brush.index;
+}
+
 void ed_w_ctx_PickBrushFaceState(struct ed_world_context_data_t *data, struct ed_editor_window_t *window)
 {
     struct stack_list_t *objects = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_BRUSH].objects;
     struct list_t *selections = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_BRUSH].selections;
+    
+    data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].selections.cursor = 0;
     
     ed_object_handles.cursor = 0;
     add_list_element(&ed_object_handles, &data->selection);
@@ -1219,7 +1158,8 @@ void ed_w_ctx_PickBrushFaceState(struct ed_world_context_data_t *data, struct ed
     
     if(selection.index == data->selection.index)
     {
-        ed_w_ctx_AppendObjectSelection(selections, selection, in_GetKeyState(SDL_SCANCODE_LSHIFT) & IN_INPUT_STATE_PRESSED);
+        ed_w_ctx_AppendBrushSelection(selections, selection, in_GetKeyState(SDL_SCANCODE_LSHIFT) & IN_INPUT_STATE_PRESSED);
+        qsort_list(selections, ed_w_ctx_CompareBrushFaceObjectRef);
         data->current_selection_target = ED_WORLD_CONTEXT_SELECTION_TARGET_BRUSH;
         ed_w_ctx_UpdateManipulatorTransform(data);
     }
@@ -1242,86 +1182,150 @@ void ed_w_ctx_ManipulatingState(struct ed_world_context_data_t *data, struct ed_
         vec3_t camera_pos = vec3_t_c_vec4_t(&viewport->view_matrix.rows[3]);
         vec3_t camera_plane_vec;
         vec3_t drag_delta;
-        
-        float fovy = 0.68;
-        float aspect = (float)viewport->width / (float)viewport->height;
-        float top = tanf(fovy) * 0.1;
-        float right = top * aspect;
-        
-        vec3_t right_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[0]);
-        vec3_t up_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[1]);
-        vec3_t forward_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[2]);
-        vec3_t mouse_vec = vec3_t_c(0.0, 0.0, 0.0);
 
-        float mouse_x = ((float)viewport->mouse_x / (float)viewport->width) * 2.0 - 1.0;
-        float mouse_y = 1.0 - ((float)viewport->mouse_y / (float)viewport->height) * 2.0;
-        
-        vec3_t_mul(&right_vec, &right_vec, right * mouse_x);
-        vec3_t_mul(&up_vec, &up_vec, top * mouse_y);
-        vec3_t_mul(&forward_vec, &forward_vec, -0.1);
-        
-        vec3_t_add(&mouse_vec, &right_vec, &up_vec);
-        vec3_t_add(&mouse_vec, &mouse_vec, &forward_vec);
-        vec3_t_normalize(&mouse_vec, &mouse_vec);
+        vec3_t forward_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[2]);
+
+        vec3_t mouse_vec = ed_w_ctx_WorldSpaceMouseVec(viewport);
         vec3_t_sub(&camera_plane_vec, &manipulator_pos, &camera_pos);
         
-        if(!data->manipulation_state.setup)
+        if(data->just_changed_state)
         {
-            vec3_t plane_normal;
-            if(data->manipulation_state.axis_constraint)
+            vec3_t axis_constraint = data->manipulation_state.axis_constraint;
+            
+            switch(data->manipulator_state.transform_type)
             {
-                data->manipulation_state.axis_clamp = ed_manipulator_plane_normal[data->manipulation_state.axis_constraint];
-                plane_normal = ed_manipulator_plane_normal[data->manipulation_state.axis_constraint];
+                case ED_TRANSFORM_TYPE_TRANSLATION:
+                {
+                    vec3_t plane_normal;
+                    
+                    if(axis_constraint.x == 0.0 && axis_constraint.y == 0.0 && axis_constraint.z == 0.0)
+                    {
+                        /* no axis constraint, so the transformation will happen along
+                        the plane parallel to the view */
+                        data->manipulation_state.pick_normal = forward_vec;
+                    }
+                    else
+                    {
+                        /* axis constraint in place, the transform will happen along
+                        this axis, so find the plane that contains both the manipulator
+                        center and the constraint axis */
+                        plane_normal = axis_constraint;
+                        float dist = vec3_t_dot(&camera_plane_vec, &plane_normal);
+                        vec3_t_fmadd(&plane_point, &manipulator_pos, &plane_normal, -dist);
+                        vec3_t_sub(&plane_normal, &camera_pos, &plane_point);
+                        vec3_t_normalize(&data->manipulation_state.pick_normal, &plane_normal);
+                    }
+                }
+                break;
                 
-                float dist = vec3_t_dot(&camera_plane_vec, &plane_normal);
-                vec3_t_fmadd(&plane_point, &manipulator_pos, &plane_normal, -dist);
-                vec3_t_sub(&plane_normal, &camera_pos, &plane_point);
-                vec3_t_normalize(&data->manipulation_state.pick_normal, &plane_normal);
-            }
-            else
-            {
-                data->manipulation_state.axis_clamp = vec3_t_c(1.0, 1.0, 1.0);
-                data->manipulation_state.pick_normal = forward_vec;
+                case ED_TRANSFORM_TYPE_ROTATION:
+                    if(axis_constraint.x == 0.0 && axis_constraint.y == 0.0 && axis_constraint.z == 0.0)
+                    {
+                        data->manipulation_state.pick_normal = forward_vec;
+                    }
+                    else
+                    {
+                        data->manipulation_state.pick_normal = axis_constraint;
+                    }
+                break;
             }
         }
         
-        float d = vec3_t_dot(&mouse_vec, &data->manipulation_state.pick_normal);
-        float t = 0.0;
+        float denom = vec3_t_dot(&mouse_vec, &data->manipulation_state.pick_normal);
+        float intersection = 0.0;
         
-        if(d)
+        if(denom)
         {
-            t = vec3_t_dot(&camera_plane_vec, &data->manipulation_state.pick_normal) / d;                
+            intersection = vec3_t_dot(&camera_plane_vec, &data->manipulation_state.pick_normal) / denom;                
         }
         
-        vec3_t_fmadd(&plane_point, &camera_pos, &mouse_vec, t);
+        vec3_t_fmadd(&plane_point, &camera_pos, &mouse_vec, intersection);
         
-        if(!data->manipulation_state.setup)
+        if(data->just_changed_state)
         {
             vec3_t_sub(&data->manipulation_state.pick_offset, &manipulator_pos, &plane_point);
         }
         
-        vec3_t_add(&plane_point, &plane_point, &data->manipulation_state.pick_offset);
-        vec3_t_sub(&drag_delta, &plane_point, &manipulator_pos);
-        
-        if(data->manipulation_state.linear_threshold)
-        {
-            drag_delta.x -= fmodf(drag_delta.x, data->manipulation_state.linear_threshold);
-            drag_delta.y -= fmodf(drag_delta.y, data->manipulation_state.linear_threshold);
-            drag_delta.z -= fmodf(drag_delta.z, data->manipulation_state.linear_threshold);
-        }
-        
-        drag_delta.x *= data->manipulation_state.axis_clamp.x;
-        drag_delta.y *= data->manipulation_state.axis_clamp.y;
-        drag_delta.z *= data->manipulation_state.axis_clamp.z;
-                
         mat4_t transform;
         mat4_t_identity(&transform);
         
-        data->manipulation_state.setup = 1;
+        switch(data->manipulator_state.transform_type)
+        {
+            case ED_TRANSFORM_TYPE_TRANSLATION:
+            {
+                vec3_t_add(&plane_point, &plane_point, &data->manipulation_state.pick_offset);
+                vec3_t_sub(&drag_delta, &plane_point, &manipulator_pos);
+            
+                if(data->manipulation_state.linear_threshold)
+                {
+                    drag_delta.x -= fmodf(drag_delta.x, data->manipulation_state.linear_threshold);
+                    drag_delta.y -= fmodf(drag_delta.y, data->manipulation_state.linear_threshold);
+                    drag_delta.z -= fmodf(drag_delta.z, data->manipulation_state.linear_threshold);
+                }
+                
+                vec3_t axis_constraint = data->manipulation_state.axis_constraint;
+                if(axis_constraint.x || axis_constraint.y || axis_constraint.z)
+                {
+                    /* if there's any sort of axis constraint in place, make sure
+                    we transform along the constraint axis */
+                    float proj = vec3_t_dot(&axis_constraint, &drag_delta);
+                    vec3_t_mul(&drag_delta, &axis_constraint, proj);
+                }
+                        
+                transform.rows[3] = vec4_t_c(drag_delta.x, drag_delta.y, drag_delta.z, 1.0);
+            }
+            break;
+            
+            case ED_TRANSFORM_TYPE_ROTATION:
+            {
+                vec3_t pick_vec;
+                vec3_t pick_offset = data->manipulation_state.pick_offset;
+                vec3_t pick_normal = data->manipulation_state.axis_constraint;
+                vec3_t_sub(&pick_vec, &plane_point, &manipulator_pos);
+                vec3_t_normalize(&pick_vec, &pick_vec);
+                vec3_t_normalize(&pick_offset, &pick_offset);
+                vec3_t pick_angle;
+                vec3_t_cross(&pick_angle, &pick_vec, &pick_offset);
+                float rotation = vec3_t_dot(&pick_angle, &pick_normal) / 3.14159265;
+                
+                if(data->manipulation_state.angular_threshold)
+                {
+                    float threshold = data->manipulation_state.angular_threshold / 180.0;
+                    rotation -= fmodf(rotation, threshold);
+                }
+                
+                if(rotation)
+                {
+                    vec3_t_sub(&data->manipulation_state.pick_offset, &plane_point, &manipulator_pos);
+                }
+                
+                if(pick_normal.x > 0.0)
+                {
+                    mat4_t_rotate_x(&transform, rotation);
+                }
+                else if(pick_normal.y > 0.0)
+                {
+                    mat4_t_rotate_y(&transform, rotation);
+                }
+                else
+                {
+                    mat4_t_rotate_z(&transform, rotation);
+                }
+            }
+            break;
+        }
         
-        transform.rows[3] = vec4_t_c(drag_delta.x, drag_delta.y, drag_delta.z, 1.0);
+        struct ed_manipulator_state_t *state = &data->manipulator_state;
         
-        ed_w_ctx_ApplyTransform(&transform, objects, selections, ED_TRANSFORM_TYPE_TRANSLATION, ED_TRANSFORM_MODE_WORLD);
+        if(data->current_selection_target == ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT)
+        {
+            ed_w_ctx_TransformObjects(&transform, objects, selections, state->transform_type, state->transform_mode);
+        }
+        else
+        {
+            ed_w_ctx_TransformBrushElements(&transform, objects, selections, state->transform_type, state->transform_mode);
+        }
+                
         ed_w_ctx_UpdateManipulatorTransform(data);
     }
     else
@@ -1374,38 +1378,38 @@ void ed_w_ctx_CreatingBrushState(struct ed_world_context_data_t *data, struct ed
         
         if(data->manipulation_state.linear_threshold)
         {
-            if(data->creating_brush_state.setup)
-            {
-                vec3_t direction;
-                vec3_t_sub(&direction, &plane_point, &data->creating_brush_state.start_corner);
-                
-                plane_point = data->creating_brush_state.start_corner;
-                
-                if(direction.x < 0.0)
-                {
-                    plane_point.x += floorf(direction.x / data->manipulation_state.linear_threshold);
-                }
-                else
-                {
-                    plane_point.x += ceilf(direction.x / data->manipulation_state.linear_threshold);
-                }
-                
-                
-                if(direction.z < 0.0)
-                {
-                    plane_point.z += floorf(direction.z / data->manipulation_state.linear_threshold);
-                }
-                else
-                {
-                    plane_point.z += ceilf(direction.z / data->manipulation_state.linear_threshold);
-                }
-            }
+//            if(!data->just_changed_state)
+//            {
+//                vec3_t direction;
+//                vec3_t_sub(&direction, &plane_point, &data->creating_brush_state.start_corner);
+//                
+////                plane_point = data->creating_brush_state.start_corner;
+//                
+////                if(direction.x < 0.0)
+////                {
+////                    plane_point.x += floorf(direction.x / data->manipulation_state.linear_threshold);
+////                }
+////                else
+////                {
+////                    plane_point.x += ceilf(direction.x / data->manipulation_state.linear_threshold);
+////                }
+////                
+////                
+////                if(direction.z < 0.0)
+////                {
+////                    plane_point.z += floorf(direction.z / data->manipulation_state.linear_threshold);
+////                }
+////                else
+////                {
+////                    plane_point.z += ceilf(direction.z / data->manipulation_state.linear_threshold);
+////                }
+//            }
             
             plane_point.x -= fmodf(plane_point.x, data->manipulation_state.linear_threshold);
             plane_point.z -= fmodf(plane_point.z, data->manipulation_state.linear_threshold);
         }
         
-        if(!data->creating_brush_state.setup)
+        if(data->just_changed_state)
         {
             data->creating_brush_state.start_corner = plane_point;
         }
@@ -1436,9 +1440,76 @@ void ed_w_ctx_CreatingBrushState(struct ed_world_context_data_t *data, struct ed
     }
 }
 
+void ed_w_ctx_ExtrudingBrushFacesState(struct ed_world_context_data_t *data, struct ed_editor_window_t *window)
+{
+    struct list_t *selections = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_BRUSH].selections;
+    struct stack_list_t *objects = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_BRUSH].objects;
+    
+    for(uint32_t selection_index = 0; selection_index < selections->cursor; selection_index++)
+    {
+        struct ed_object_h handle = *(struct ed_object_h  *)get_list_element(selections, selection_index);
+        struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, handle);
+        struct bsh_brush_h brush_handle = object->object.brush;
+        struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
+        ed_ExtrudeBrushFace(object->object.brush, object->object.face_index);
+        bsh_UpdateDrawTriangles(object->object.brush);
+        
+        for(uint32_t object_index = 0; object_index < data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects.cursor; object_index++)
+        {
+            object = ed_w_ctx_GetObjectPointer(&data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects, ED_OBJECT_HANDLE(object_index));
+            if(object && object->type == ED_OBJECT_TYPE_BRUSH)
+            {
+                if(object->object.brush.index == brush_handle.index)
+                {
+                    object->start = brush->start;
+                    object->count = brush->count;
+                    object->vertex_count = brush->draw_vertice_count;
+                    object->vertex_offset = brush->vertex_offset;
+                    break;
+                }
+            }
+        }
+    }
+    
+    if(selections->cursor == 1)
+    {
+        struct ed_object_h handle = *(struct ed_object_h  *)get_list_element(selections, 0);
+        struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, handle);
+        struct ed_brush_face_t *face = ed_GetBrushFacePointer(object->object.brush, object->object.face_index);
+        struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
+        mat3_t_vec3_t_mul(&data->manipulation_state.axis_constraint, &face->face_normal, &brush->orientation);
+    }
+    
+    ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_MANIPULATING);
+}
+
+void ed_w_ctx_CopyingSelectionsState(struct ed_world_context_data_t *data, struct ed_editor_window_t *window)
+{
+    if(data->current_selection_target == ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT)
+    {
+        struct stack_list_t *objects = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects;
+        struct list_t *selections = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].selections;
+        ed_w_ctx_CopySelections(objects, selections);
+    }
+    
+    ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_IDLE);
+}
+
+void ed_w_ctx_DeletingSelectionsState(struct ed_world_context_data_t *data, struct ed_editor_window_t *window)
+{
+    if(data->current_selection_target == ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT)
+    {
+        struct stack_list_t *objects = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects;
+        struct list_t *selections = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].selections;
+        ed_w_ctx_DeleteSelections(objects, selections);
+    }
+    
+    ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_IDLE);
+}
+
 void ed_w_ctx_FlyingState(struct ed_world_context_data_t *data, struct ed_editor_window_t *window)
 {
-    if(in_GetMouseState(IN_MOUSE_BUTTON_MIDDLE) & IN_INPUT_STATE_JUST_PRESSED)
+    if(data->just_changed_state)
     {
         in_RelativeMode(1);
     }
@@ -1452,6 +1523,38 @@ void ed_w_ctx_FlyingState(struct ed_world_context_data_t *data, struct ed_editor
         in_RelativeMode(0);
         ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_IDLE);
     }
+}
+
+/*
+===========================================================================================================================================
+===========================================================================================================================================
+===========================================================================================================================================
+*/
+
+vec3_t ed_w_ctx_WorldSpaceMouseVec(struct ed_editor_viewport_t *viewport)
+{
+    float fovy = 0.68;
+    float aspect = (float)viewport->width / (float)viewport->height;
+    float top = tanf(fovy) * 0.1;
+    float right = top * aspect;
+    
+    vec3_t right_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[0]);
+    vec3_t up_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[1]);
+    vec3_t forward_vec = vec3_t_c_vec4_t(&viewport->view_matrix.rows[2]);
+    vec3_t mouse_vec = vec3_t_c(0.0, 0.0, 0.0);
+
+    float mouse_x = ((float)viewport->mouse_x / (float)viewport->width) * 2.0 - 1.0;
+    float mouse_y = 1.0 - ((float)viewport->mouse_y / (float)viewport->height) * 2.0;
+    
+    vec3_t_mul(&right_vec, &right_vec, right * mouse_x);
+    vec3_t_mul(&up_vec, &up_vec, top * mouse_y);
+    vec3_t_mul(&forward_vec, &forward_vec, -0.1);
+    
+    vec3_t_add(&mouse_vec, &right_vec, &up_vec);
+    vec3_t_add(&mouse_vec, &mouse_vec, &forward_vec);
+    vec3_t_normalize(&mouse_vec, &mouse_vec);
+    
+    return mouse_vec;
 }
 
 /*
@@ -1488,8 +1591,11 @@ void ed_w_ctx_UpdateManipulatorTransform(struct ed_world_context_data_t *data)
                 vec3_t face_position = vec3_t_c(0.0, 0.0, 0.0);
                 for(uint32_t vert_index = 0; vert_index < face->indice_count; vert_index++)
                 {
-                    vec3_t_add(&face_position, &face_position, brush->vertices + face->indices[vert_index]);
+                    vec3_t transformed_vec = brush->vertices[face->indices[vert_index]];
+                    mat3_t_vec3_t_mul(&transformed_vec, &transformed_vec, &brush->orientation);
+                    vec3_t_add(&face_position, &face_position, &transformed_vec);
                 }
+                
                 face_position.x /= (float)face->indice_count;
                 face_position.y /= (float)face->indice_count;
                 face_position.z /= (float)face->indice_count;  
@@ -1508,16 +1614,27 @@ void ed_w_ctx_UpdateManipulatorTransform(struct ed_world_context_data_t *data)
     data->manipulator_state.transform.rows[3].w = 1.0;
 }
 
-void ed_w_ctx_ManipulatorDrawTransform(mat4_t *draw_transform, mat4_t *manipulator_transform, struct ed_editor_viewport_t *viewport)
+void ed_w_ctx_ManipulatorDrawTransform(mat4_t *draw_transform, struct ed_manipulator_state_t *manipulator_state, struct ed_editor_viewport_t *viewport)
 {
     vec3_t view_pos = vec3_t_c_vec4_t(&viewport->view_matrix.rows[3]);
-    vec3_t manipulator_pos = vec3_t_c_vec4_t(&manipulator_transform->rows[3]);
+    vec3_t manipulator_pos = vec3_t_c_vec4_t(&manipulator_state->transform.rows[3]);
     vec3_t view_manipulator_vec;
     
     vec3_t_sub(&view_manipulator_vec, &manipulator_pos, &view_pos);
+    float scale = vec3_t_length(&view_manipulator_vec);
     
-    float scale = vec3_t_length(&view_manipulator_vec) * 0.1;
-    *draw_transform = *manipulator_transform;
+    switch(manipulator_state->transform_type)
+    {
+        case ED_TRANSFORM_TYPE_TRANSLATION:
+            scale *= 0.015;
+        break;
+        
+        case ED_TRANSFORM_TYPE_ROTATION:
+            scale *= 0.25;
+        break;
+    }
+    
+    *draw_transform = manipulator_state->transform;
     draw_transform->rows[0].x *= scale;
     draw_transform->rows[1].y *= scale;
     draw_transform->rows[2].z *= scale;
@@ -1542,7 +1659,7 @@ void ed_w_ctx_ObjectTransform(struct stack_list_t *objects, struct ed_object_h h
     }
 }
 
-void ed_w_ctx_ApplyTransform(mat4_t *transform, struct stack_list_t *objects, struct list_t *selections, uint32_t transform_type, uint32_t transform_mode)
+void ed_w_ctx_TransformObjects(mat4_t *transform, struct stack_list_t *objects, struct list_t *selections, uint32_t transform_type, uint32_t transform_mode)
 {
     switch(transform_type)
     {
@@ -1568,22 +1685,100 @@ void ed_w_ctx_ApplyTransform(mat4_t *transform, struct stack_list_t *objects, st
                         mat4_t_comp(&object->transform, &brush->orientation, &brush->position);
                     }
                     break;
-                    
-                    case ED_OBJECT_TYPE_FACE:
+                }
+            }
+        }
+        break;
+        
+        case ED_TRANSFORM_TYPE_ROTATION:
+        {
+            mat3_t orientation;
+            orientation.rows[0] = vec3_t_c_vec4_t(&transform->rows[0]);
+            orientation.rows[1] = vec3_t_c_vec4_t(&transform->rows[1]);
+            orientation.rows[2] = vec3_t_c_vec4_t(&transform->rows[2]);
+            
+            for(uint32_t selection_index = 0; selection_index < selections->cursor; selection_index++)
+            {
+                struct ed_object_h handle = *(struct ed_object_h *)get_list_element(selections, selection_index);
+                struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, handle);
+                
+                switch(object->type)
+                {
+                    case ED_OBJECT_TYPE_BRUSH:
                     {
+                        bsh_RotateBrush(object->object.brush, &orientation);
                         struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
-                        struct ed_brush_face_t *face = ed_GetBrushFacePointer(object->object.brush, object->object.face_index);
-                        
-                        for(uint32_t vert_index = 0; vert_index < face->indice_count; vert_index++)
-                        {
-                            vec3_t *vert = brush->vertices + face->indices[vert_index];
-                            vec3_t_add(vert, vert, &translation);
-                        }
-                        
-                        bsh_UpdateDrawTriangles(object->object.brush);
+                        mat4_t_identity(&object->transform);
+                        mat4_t_comp(&object->transform, &brush->orientation, &brush->position);
                     }
                     break;
                 }
+            }
+        }
+        break;          
+    }
+}
+
+void ed_w_ctx_TransformBrushElements(mat4_t *transform, struct stack_list_t *objects, struct list_t *selections, uint32_t transform_type, uint32_t transform_mode)
+{
+    struct ed_brush_t *current_brush = NULL;
+    struct bsh_brush_h current_brush_handle;
+    
+    ed_transform_brush_face_indices.cursor = 0;
+    
+    switch(transform_type)
+    {
+        case ED_TRANSFORM_TYPE_TRANSLATION:
+        {
+            vec3_t translation;
+            translation.x = transform->rows[3].x;
+            translation.y = transform->rows[3].y;
+            translation.z = transform->rows[3].z;
+            uint32_t selection_index = 0;
+            while(1)
+            {
+                for(; selection_index < selections->cursor; selection_index++)
+                {
+                    struct ed_object_h handle = *(struct ed_object_h *)get_list_element(selections, selection_index);
+                    struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, handle);
+                    struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
+                    struct ed_brush_face_t *face = ed_GetBrushFacePointer(object->object.brush, object->object.face_index);
+                    
+                    if((brush != current_brush) && ed_transform_brush_face_indices.cursor)
+                    {
+                        break;
+                    }
+                    
+                    current_brush = brush;
+                    current_brush_handle = object->object.brush;
+                    
+                    for(uint32_t vert_index = 0; vert_index < face->indice_count; vert_index++)
+                    {
+                        if(find_list_element(&ed_transform_brush_face_indices, &face->indices[vert_index]) == 0xffffffff)
+                        {
+                            add_list_element(&ed_transform_brush_face_indices, &face->indices[vert_index]);
+                        }
+                    }
+                }
+                
+                if(!ed_transform_brush_face_indices.cursor)
+                {
+                    break;
+                }
+                
+                vec3_t rotated_translation;
+                mat3_t inverse_rotation = current_brush->orientation;
+                mat3_t_transpose(&inverse_rotation, &inverse_rotation);
+                mat3_t_vec3_t_mul(&rotated_translation, &translation, &inverse_rotation);
+                
+                for(uint32_t vert_index = 0; vert_index < ed_transform_brush_face_indices.cursor; vert_index++)
+                {
+                    uint32_t indice = *(uint32_t *)get_list_element(&ed_transform_brush_face_indices, vert_index);
+                    vec3_t *vert = current_brush->vertices + indice;
+                    vec3_t_add(vert, vert, &rotated_translation);
+                }
+                ed_transform_brush_face_indices.cursor = 0;
+                bsh_UpdateDrawTriangles(current_brush_handle);
             }
         }
         break;
@@ -1591,7 +1786,7 @@ void ed_w_ctx_ApplyTransform(mat4_t *transform, struct stack_list_t *objects, st
 }
 
 
-uint32_t ed_w_ctx_PickManipulator(mat4_t *manipulator_transform, uint32_t transform_type, struct ed_editor_viewport_t *viewport)
+uint32_t ed_w_ctx_PickManipulator(struct ed_manipulator_state_t *manipulator_state, struct ed_editor_viewport_t *viewport)
 {
     union r_command_buffer_h command_buffer;
     struct r_render_pass_t *render_pass;
@@ -1602,6 +1797,16 @@ uint32_t ed_w_ctx_PickManipulator(mat4_t *manipulator_transform, uint32_t transf
     struct r_chunk_t *vertex_chunk;
     struct r_chunk_t *index_chunk;
     struct ed_manipulator_t *manipulator;
+    
+    if(viewport->mouse_x < 0 || viewport->mouse_x >= viewport->width)
+    {
+        return 0;
+    }
+    
+    if(viewport->mouse_y < 0 || viewport->mouse_y >= viewport->height)
+    {
+        return 0;
+    }
     
     struct
     {
@@ -1614,14 +1819,14 @@ uint32_t ed_w_ctx_PickManipulator(mat4_t *manipulator_transform, uint32_t transf
     pipeline = r_GetPipelinePointer(render_pass->pipelines[0]);
     command_buffer = ed_BeginPicking(viewport);
     
-    vertex_chunk = r_GetChunkPointer(ed_translation_manipulator_vert_chunk);
-    index_chunk = r_GetChunkPointer(ed_translation_manipulator_index_chunk);
     
-    ed_w_ctx_ManipulatorDrawTransform(&push_constant.model_view_projection_matrix, manipulator_transform, viewport);
+//    index_chunk = r_GetChunkPointer(ed_translation_manipulator_index_chunk);
+    
+    ed_w_ctx_ManipulatorDrawTransform(&push_constant.model_view_projection_matrix, manipulator_state, viewport);
     mat4_t_mul(&push_constant.model_view_projection_matrix, &push_constant.model_view_projection_matrix, &view_projection_matrix);
     
-    manipulator = ed_manipulators + ED_TRANSFORM_TYPE_TRANSLATION;
-    uint32_t index_start = index_chunk->start / sizeof(uint32_t);
+    manipulator = ed_manipulators + manipulator_state->transform_type;
+    vertex_chunk = r_GetChunkPointer(manipulator->chunk);
     uint32_t vertex_start = vertex_chunk->start / sizeof(struct r_i_vertex_t);
     
     for(uint32_t component_index = 0; component_index < manipulator->component_count; component_index++)
@@ -1629,7 +1834,7 @@ uint32_t ed_w_ctx_PickManipulator(mat4_t *manipulator_transform, uint32_t transf
         struct ed_manipulator_component_t *component = manipulator->components + component_index;
         push_constant.object_index = component->id;
         r_vkCmdPushConstants(command_buffer, pipeline->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(push_constant), &push_constant);
-        r_vkCmdDrawIndexed(command_buffer, component->count, 1, index_start, vertex_start + component->vertex_start, 0);
+        r_vkCmdDraw(command_buffer, component->count, 1, vertex_start + component->start, 0);
     }
     
     return ed_EndPicking(command_buffer, viewport);
@@ -1642,6 +1847,16 @@ struct ed_object_h ed_w_ctx_PickObject(struct stack_list_t *objects, struct list
     struct r_pipeline_t *pipeline;
     mat4_t model_view_projection_matrix;
     mat4_t view_projection_matrix;
+    
+    if(viewport->mouse_x < 0 || viewport->mouse_x >= viewport->width)
+    {
+        return ED_INVALID_OBJECT_HANDLE;
+    }
+    
+    if(viewport->mouse_y < 0 || viewport->mouse_y >= viewport->height)
+    {
+        return ED_INVALID_OBJECT_HANDLE;
+    }
     
     struct
     {
@@ -1782,6 +1997,36 @@ void ed_w_ctx_AppendObjectSelection(struct list_t *selections, struct ed_object_
         }
     }
     
+}
+
+void ed_w_ctx_CopySelections(struct stack_list_t *objects, struct list_t *selections)
+{
+    for(uint32_t selection_index = 0; selection_index < selections->cursor; selection_index++)
+    {
+        struct ed_object_h *handle = get_list_element(selections, selection_index);
+        struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, *handle);
+        
+        switch(object->type)
+        {
+            case ED_OBJECT_TYPE_BRUSH:
+            {
+                struct bsh_brush_h new_brush = ed_CopyBrush(object->object.brush);
+                *handle = ed_w_ctx_CreateBrushObjectFromBrush(objects, new_brush);                
+            }            
+            break;
+        }
+    }
+}
+
+void ed_w_ctx_DeleteSelections(struct stack_list_t *objects, struct list_t *selections)
+{
+    for(uint32_t selection_index = 0; selection_index < selections->cursor; selection_index++)
+    {
+        struct ed_object_h handle = *(struct ed_object_h *)get_list_element(selections, selection_index);
+        ed_w_ctx_DestroyObject(objects, handle);
+    }
+    
+    selections->cursor = 0;
 }
 
 void ed_w_ctx_AppendBrushSelection(struct list_t *selections, struct ed_object_h selection, uint32_t shift_pressed)

@@ -80,6 +80,39 @@ struct bsh_brush_h
 #define BSH_INVALID_BRUSH_HANDLE BSH_BRUSH_HANDLE(BSH_INVALID_BRUSH_INDEX)
 
 
+struct ed_brush_header_t
+{
+    uint32_t brush_count;
+};
+
+struct ed_brush_data_t
+{
+    uint32_t indice_count;
+    uint32_t face_count;
+    uint32_t vertice_count;
+    uint32_t type;
+    vec3_t position;
+    vec3_t size;
+    mat3_t orientation;
+};
+
+struct ed_brush_vertice_data_t
+{
+    uint32_t count;
+    vec3_t vertices[];
+};
+
+struct ed_brush_face_data_t
+{
+    char material[64];
+    uint32_t tex_coord_mode;
+    float u_scale;
+    float v_scale;
+    float uv_rotation;
+    uint32_t indice_count;
+    uint32_t indices[];
+};
+
 
 enum BSH_BSP_TYPE
 {
@@ -130,7 +163,11 @@ struct bsh_brush_h bsh_CreateCubeBrush(vec3_t *position, mat3_t *orientation, ve
 
 struct bsh_brush_h bsh_CreateCylinderBrush(vec3_t *position, mat3_t *orientation, vec3_t *scale, uint32_t vert_count);
 
+struct bsh_brush_h ed_CopyBrush(struct bsh_brush_h handle);
+
 void bsh_DestroyBrush(struct bsh_brush_h handle);
+
+void ed_DestroyAllBrushes();
 
 struct ed_brush_t *ed_GetBrushPointer(struct bsh_brush_h brush);
 
@@ -138,9 +175,15 @@ struct ed_brush_face_t *ed_GetBrushFacePointer(struct bsh_brush_h handle, uint32
 
 void bsh_TranslateBrush(struct bsh_brush_h handle, vec3_t *translation);
 
+void bsh_RotateBrush(struct bsh_brush_h handle, mat3_t *rotation);
+
 void bsh_UpdateDrawTriangles(struct bsh_brush_h handle);
 
 void ed_ExtrudeBrushFace(struct bsh_brush_h handle, uint32_t face_index);
+
+void ed_SerializeBrushes(void **buffer, uint32_t *buffer_size);
+
+void ed_UnserializeBrushes(void *buffer);
 
 
 //struct bsh_polygon_t *bsh_CopyPolygons(struct bsh_polygon_t *polygons);

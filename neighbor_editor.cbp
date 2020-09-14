@@ -38,6 +38,10 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="ed.h" />
+		<Unit filename="ed_w_ctx.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="ed_w_ctx.h" />
 		<Unit filename="main.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -116,10 +120,6 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="neighbor/ui.h" />
-		<Unit filename="ui_ed.c">
-			<Option compilerVar="CPP" />
-		</Unit>
-		<Unit filename="ui_ed.h" />
 		<Extensions>
 			<lib_finder disable_auto="1" />
 		</Extensions>

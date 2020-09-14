@@ -1,8 +1,12 @@
 #include <stdio.h>
+#include <limits.h>
 #include "ed.h"
 #include "ed_w_ctx.h"
 #include "neighbor/r_draw.h"
+#include "neighbor/lib/dstuff/ds_file.h"
+#include "neighbor/lib/dstuff/ds_dir.h"
 #include "neighbor/lib/dstuff/ds_mem.h"
+#include "neighbor/lib/dstuff/ds_obj.h"
 #include "neighbor/ui.h"
 #include "bsh.h"
 #include "neighbor/in.h"
@@ -29,7 +33,16 @@ uint32_t ed_picking_framebuffer_width;
 uint32_t ed_picking_framebuffer_height;
 void *ed_picking_memory;
 uint32_t ed_frame;
-//struct stack_list_t ed_objects;
+
+
+struct
+{
+    char path[PATH_MAX];
+    char file_name[PATH_MAX];
+    struct ds_dir_list_t current_dir;
+    uint32_t browser_open;
+    uint32_t mode;
+} ed_browser_state;
 
 struct r_framebuffer_h ed_framebuffer;
 
@@ -37,9 +50,8 @@ extern struct r_heap_h r_vertex_heap;
 extern struct r_heap_h r_index_heap;
 extern VkQueue r_draw_queue;
 extern VkFence r_draw_fence;
+extern SDL_Window *r_window;
 
-#define ED_GRID_X_WIDTH 20
-#define ED_GRID_Z_WIDTH 20
 //#define ED_GRID_QUAD_VERTS 5
 
 //#define ED_GRID_VERTS (((ED_GRID_X_WIDTH >> 1) + (ED_GRID_Z_WIDTH >> 1) - 1) * ED_GRID_QUAD_VERTS)
@@ -61,8 +73,6 @@ extern VkFence r_draw_fence;
 
 
 struct r_i_vertex_t *ed_rotation_manipulator;
-
-
 struct r_i_vertex_t *ed_scale_manipulator;
 
 void (*ed_TranslateObjectFunction[ED_OBJECT_TYPE_LAST])(struct ed_object_t *object, vec3_t *translation) = {NULL};
@@ -95,11 +105,15 @@ void (*ed_TranslateObjectFunction[ED_OBJECT_TYPE_LAST])(struct ed_object_t *obje
 //    }
 //};
 
+
+struct ed_level_t ed_current_level = {};
+
 void ed_Init()
 {
-    vec3_t brush_position = {0.0, 0.0, 0.0};
-    vec3_t brush_scale;
-    mat3_t brush_orientation;
+//    printf("%s\n", getenv("APPDATA"));
+//    vec3_t brush_position = {0.0, 0.0, 0.0};
+//    vec3_t brush_scale;
+//    mat3_t brush_orientation;
     struct ed_editor_context_t *context;
     uint32_t edges[2];
     char window_name[512];
@@ -114,43 +128,19 @@ void ed_Init()
     in_RegisterKey(SDL_SCANCODE_D);
     in_RegisterKey(SDL_SCANCODE_R);
     in_RegisterKey(SDL_SCANCODE_G);
-    bsh_Init();
+    in_RegisterKey(SDL_SCANCODE_L);
+    in_RegisterKey(SDL_SCANCODE_DELETE);
+    in_RegisterKey(SDL_SCANCODE_RETURN);
+    
+    ed_current_level.level_path[0] = '\0';
+    ed_current_level.data.level_name[0] = '\0';
+    
+    strcpy(ed_browser_state.path, "C:/");
+    
     ed_w_ctx_Init();
     
-//    ed_objects = create_stack_list(sizeof(struct ed_object_t), 512);
-    
-    
-//    ed_contexts[ED_CONTEXT_WORLD].input_function = ed_WorldContextInput;
-//    ed_contexts[ED_CONTEXT_WORLD].update_function = ed_WorldContextUpdate;
-//    ed_contexts[ED_CONTEXT_WORLD].context_data = mem_Calloc(1, sizeof(struct ed_world_context_data_t));
-//    ed_contexts[ED_CONTEXT_WORLD].update_frame = 0xffffffff;
-    
-//    struct ed_world_context_data_t *data;
-//    struct ed_world_context_sub_context_t *sub_context;
-//    
-//    data = ed_contexts[ED_CONTEXT_WORLD].context_data;
-//    data->sub_contexts = mem_Calloc(ED_WORLD_CONTEXT_SUB_CONTEXT_LAST, sizeof(struct ed_world_context_sub_context_t));
-//    
-//    sub_context = data->sub_contexts + ED_WORLD_CONTEXT_SUB_CONTEXT_WORLD;
-//    sub_context->input_function = ed_WorldContextWorldSubContextInput;
-//    sub_context->update_function = ed_WorldContextWorldSubContextUpdate;
-//    sub_context->selections = create_list(sizeof(struct ed_object_h), 512);
-//    sub_context->objects = create_list(sizeof(struct ed_object_h), 512);
-//    mat4_t_identity(&sub_context->manipulator_state.transform);
-//    sub_context->manipulator_state.picked_axis = 0;
-//    data->active_sub_context = sub_context;
-//    
-//    sub_context = data->sub_contexts + ED_WORLD_CONTEXT_SUB_CONTEXT_BRUSH;
-//    sub_context->input_function = ed_WorldContextBrushSubContextInput;
-//    sub_context->update_function = ed_WorldContextBrushSubContextUpdate;
-//    sub_context->selections = create_list(sizeof(struct ed_object_h), 512);
-//    sub_context->objects = create_list(sizeof(struct ed_object_h), 512);
-//    mat4_t_identity(&sub_context->manipulator_state.transform);
-//    sub_context->manipulator_state.picked_axis = 0;
-    
-    
-    
     struct ed_editor_window_t *window = mem_Calloc(1, sizeof(struct ed_editor_viewport_t));
+    window->focused = 0;
     ed_windows = window;
     ed_last_window = (struct ed_editor_window_t *)ed_windows;
     ed_active_window = (struct ed_editor_window_t *)ed_windows;
@@ -168,24 +158,18 @@ void ed_Init()
     
 //    window = mem_Calloc(1, sizeof(struct ed_editor_viewport_t));
 //    ed_last_window->next = window;
-//    ed_last_window = window;
+//    ed_active_window = window;
 //    window->attached_context = ed_contexts + ED_CONTEXT_WORLD;
+//    
 //    viewport = (struct ed_editor_viewport_t *)window;
 //    viewport->base.type = ED_EDITOR_WINDOW_TYPE_VIEWPORT;
 //    viewport->width = 640;
 //    viewport->height = 480;
-//    viewport->next_width = 640;
-//    viewport->next_height = 480;
 //    viewport->view_pitch = 0.0;
 //    viewport->view_yaw = 0.0;
 //    viewport->framebuffer = r_CreateDrawableFramebuffer(viewport->width, viewport->height);
-//    mat4_t_identity(&viewport->view_matrix);  
+//    mat4_t_identity(&viewport->view_matrix);
     
-    
-    
-//    ed_WorldContextCreateBrushObject(&vec3_t_c(0.0, 0.0, 0.0));    
-//    ed_WorldContextCreateBrushObject(&vec3_t_c(0.0, 0.0, 5.0));
-//    ed_WorldContextCreateBrushObject(&vec3_t_c(0.0, 0.0, -5.0));
     
     struct r_shader_description_t shader_description = {
         .stage = VK_SHADER_STAGE_VERTEX_BIT,
@@ -293,260 +277,6 @@ void ed_Init()
     struct r_framebuffer_t *framebuffer = r_GetFramebufferPointer(ed_picking_framebuffer);
     struct r_texture_t *texture = r_GetTexturePointer(framebuffer->textures[0]);
     ed_picking_memory = r_MapImageMemory(texture->image);
-    
-//    /* center grid (well, I suppose that was already clear) */
-//    ed_center_grid = mem_Calloc(((ED_GRID_X_WIDTH >> 1) + (ED_GRID_Z_WIDTH >> 1) + 2) * 5, sizeof(struct r_i_vertex_t));
-//    struct r_i_vertex_t *verts = ed_center_grid;
-//    for(int32_t quad_index = ED_GRID_X_WIDTH >> 1; quad_index >= 0; quad_index--)
-//    {
-//        struct r_i_vertex_t *vert;
-//        int32_t vert_index = 0;
-//        
-//        vert = verts + vert_index;
-//        vert->position = vec4_t_c(-(float)quad_index, 0.0, -(float)(ED_GRID_X_WIDTH >> 1), 1.0);
-//        vert->color = vec4_t_c(1.0, 1.0, 1.0, 1.0);
-//        vert_index++;
-//        
-//        vert = verts + vert_index;
-//        vert->position = vec4_t_c(-(float)quad_index, 0.0, (float)(ED_GRID_X_WIDTH >> 1), 1.0);
-//        vert->color = vec4_t_c(1.0, 1.0, 1.0, 1.0);
-//        vert_index++;
-//        
-//        vert = verts + vert_index;
-//        vert->position = vec4_t_c((float)quad_index, 0.0, (float)(ED_GRID_X_WIDTH >> 1), 1.0);
-//        vert->color = vec4_t_c(1.0, 1.0, 1.0, 1.0);
-//        vert_index++;
-//        
-//        vert = verts + vert_index;
-//        vert->position = vec4_t_c((float)quad_index, 0.0, -(float)(ED_GRID_X_WIDTH >> 1), 1.0);
-//        vert->color = vec4_t_c(1.0, 1.0, 1.0, 1.0);
-//        vert_index++;
-//        
-//        vert = verts + vert_index;
-//        vert->position = vec4_t_c(-(float)quad_index, 0.0, -(float)(ED_GRID_X_WIDTH >> 1), 1.0);
-//        vert->color = vec4_t_c(1.0, 1.0, 1.0, 1.0);
-//        vert_index++;
-//        
-//        verts += 5;
-//    }
-//    
-//    
-//    for(int32_t quad_index = ED_GRID_Z_WIDTH >> 1; quad_index >= 0; quad_index--)
-//    {
-//        struct r_i_vertex_t *vert;
-//        int32_t vert_index = 0;
-//        
-//        vert = verts + vert_index;
-//        vert->position = vec4_t_c(-(float)(ED_GRID_Z_WIDTH >> 1), 0.0, -(float)quad_index, 1.0);
-//        vert->color = vec4_t_c(1.0, 1.0, 1.0, 1.0);
-//        vert_index++;
-//        
-//        vert = verts + vert_index;
-//        vert->position = vec4_t_c(-(float)(ED_GRID_Z_WIDTH >> 1), 0.0, (float)quad_index, 1.0);
-//        vert->color = vec4_t_c(1.0, 1.0, 1.0, 1.0);
-//        vert_index++;
-//        
-//        vert = verts + vert_index;
-//        vert->position = vec4_t_c((float)(ED_GRID_Z_WIDTH >> 1), 0.0, (float)quad_index, 1.0);
-//        vert->color = vec4_t_c(1.0, 1.0, 1.0, 1.0);
-//        vert_index++;
-//        
-//        vert = verts + vert_index;
-//        vert->position = vec4_t_c((float)(ED_GRID_Z_WIDTH >> 1), 0.0, -(float)quad_index, 1.0);
-//        vert->color = vec4_t_c(1.0, 1.0, 1.0, 1.0);
-//        vert_index++;
-//        
-//        vert = verts + vert_index;
-//        vert->position = vec4_t_c(-(float)(ED_GRID_Z_WIDTH >> 1), 0.0, -(float)quad_index, 1.0);
-//        vert->color = vec4_t_c(1.0, 1.0, 1.0, 1.0);
-//        vert_index++;
-//        
-//        verts += 5;
-//    }
-//    
-//    
-//    /* translation manipulator */
-//    ed_translation_manipulator_verts = mem_Calloc(ED_TRANSLATION_MANIPULATOR_VERT_COUNT, sizeof(struct r_i_vertex_t));
-//    ed_translation_manipulator_indices = mem_Calloc(ED_TRANSLATION_MANIPULATOR_INDICE_COUNT, sizeof(uint32_t));
-//    
-//    #define MANIPULATOR_SHAFT_THICKNESS 0.05
-//    
-//    /* X axis */
-//    ed_translation_manipulator_verts[0].position = vec4_t_c(0.5, MANIPULATOR_SHAFT_THICKNESS,-MANIPULATOR_SHAFT_THICKNESS, 1.0);
-//    ed_translation_manipulator_verts[0].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[1].position = vec4_t_c(0.5, MANIPULATOR_SHAFT_THICKNESS, MANIPULATOR_SHAFT_THICKNESS, 1.0);
-//    ed_translation_manipulator_verts[1].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[2].position = vec4_t_c(2.5, MANIPULATOR_SHAFT_THICKNESS, MANIPULATOR_SHAFT_THICKNESS, 1.0);
-//    ed_translation_manipulator_verts[2].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[3].position = vec4_t_c(2.5, MANIPULATOR_SHAFT_THICKNESS,-MANIPULATOR_SHAFT_THICKNESS, 1.0);
-//    ed_translation_manipulator_verts[3].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[4].position = vec4_t_c(0.5,-MANIPULATOR_SHAFT_THICKNESS,-MANIPULATOR_SHAFT_THICKNESS, 1.0);
-//    ed_translation_manipulator_verts[4].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[5].position = vec4_t_c(0.5,-MANIPULATOR_SHAFT_THICKNESS, MANIPULATOR_SHAFT_THICKNESS, 1.0);
-//    ed_translation_manipulator_verts[5].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[6].position = vec4_t_c(2.5,-MANIPULATOR_SHAFT_THICKNESS, MANIPULATOR_SHAFT_THICKNESS, 1.0);
-//    ed_translation_manipulator_verts[6].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[7].position = vec4_t_c(2.5,-MANIPULATOR_SHAFT_THICKNESS,-MANIPULATOR_SHAFT_THICKNESS, 1.0);
-//    ed_translation_manipulator_verts[7].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    
-//    ed_translation_manipulator_verts[8].position = vec4_t_c(2.5, 0.2,-0.2, 1.0);
-//    ed_translation_manipulator_verts[8].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[9].position = vec4_t_c(2.5,-0.2,-0.2, 1.0);
-//    ed_translation_manipulator_verts[9].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[10].position = vec4_t_c(2.5,-0.2, 0.2, 1.0);
-//    ed_translation_manipulator_verts[10].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[11].position = vec4_t_c(2.5, 0.2, 0.2, 1.0);
-//    ed_translation_manipulator_verts[11].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[12].position = vec4_t_c(3.0, 0.0, 0.0, 1.0);
-//    ed_translation_manipulator_verts[12].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    
-//    ed_translation_manipulator_verts[13].position = vec4_t_c(0.4, 0.0, 0.4, 1.0);
-//    ed_translation_manipulator_verts[13].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[14].position = vec4_t_c(0.4, 0.0, 0.8, 1.0);
-//    ed_translation_manipulator_verts[14].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[15].position = vec4_t_c(0.8, 0.0, 0.8, 1.0);
-//    ed_translation_manipulator_verts[15].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    ed_translation_manipulator_verts[16].position = vec4_t_c(0.8, 0.0, 0.4, 1.0);
-//    ed_translation_manipulator_verts[16].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-//    
-//    
-//    
-//    /* manipulator shaft */
-//    ed_translation_manipulator_indices[0]  = 0;
-//    ed_translation_manipulator_indices[1]  = 1;
-//    ed_translation_manipulator_indices[2]  = 2;
-//    ed_translation_manipulator_indices[3]  = 2;
-//    ed_translation_manipulator_indices[4]  = 3;
-//    ed_translation_manipulator_indices[5]  = 0;
-//    
-//    ed_translation_manipulator_indices[6]  = 1;
-//    ed_translation_manipulator_indices[7]  = 5;
-//    ed_translation_manipulator_indices[8]  = 6;
-//    ed_translation_manipulator_indices[9]  = 6;
-//    ed_translation_manipulator_indices[10] = 2;
-//    ed_translation_manipulator_indices[11] = 1;
-//    
-//    ed_translation_manipulator_indices[12] = 4;
-//    ed_translation_manipulator_indices[13] = 7;
-//    ed_translation_manipulator_indices[14] = 6;
-//    ed_translation_manipulator_indices[15] = 6;
-//    ed_translation_manipulator_indices[16] = 5;
-//    ed_translation_manipulator_indices[17] = 4;
-//    
-//    ed_translation_manipulator_indices[18] = 0;
-//    ed_translation_manipulator_indices[19] = 3;
-//    ed_translation_manipulator_indices[20] = 7;
-//    ed_translation_manipulator_indices[21] = 7;
-//    ed_translation_manipulator_indices[22] = 4;
-//    ed_translation_manipulator_indices[23] = 0;
-//    
-//    
-//    /* manipulator tip */
-//    ed_translation_manipulator_indices[24] = 8;
-//    ed_translation_manipulator_indices[25] = 11;
-//    ed_translation_manipulator_indices[26] = 12;
-//    ed_translation_manipulator_indices[27] = 11;
-//    ed_translation_manipulator_indices[28] = 10;
-//    ed_translation_manipulator_indices[29] = 12;
-//    
-//    ed_translation_manipulator_indices[30] = 8;
-//    ed_translation_manipulator_indices[31] = 12;
-//    ed_translation_manipulator_indices[32] = 9;
-//    ed_translation_manipulator_indices[33] = 9;
-//    ed_translation_manipulator_indices[34] = 12;
-//    ed_translation_manipulator_indices[35] = 10;
-//    
-//    ed_translation_manipulator_indices[36] = 8;
-//    ed_translation_manipulator_indices[37] = 3;
-//    ed_translation_manipulator_indices[38] = 2;
-//    ed_translation_manipulator_indices[39] = 2;
-//    ed_translation_manipulator_indices[40] = 11;
-//    ed_translation_manipulator_indices[41] = 8;
-//    
-//    ed_translation_manipulator_indices[42] = 11;
-//    ed_translation_manipulator_indices[43] = 2;
-//    ed_translation_manipulator_indices[44] = 6;
-//    ed_translation_manipulator_indices[45] = 6;
-//    ed_translation_manipulator_indices[46] = 10;
-//    ed_translation_manipulator_indices[47] = 11;
-//    
-//    ed_translation_manipulator_indices[48] = 7;
-//    ed_translation_manipulator_indices[49] = 9;
-//    ed_translation_manipulator_indices[50] = 10;
-//    ed_translation_manipulator_indices[51] = 10;
-//    ed_translation_manipulator_indices[52] = 6;
-//    ed_translation_manipulator_indices[53] = 7;
-//    
-//    ed_translation_manipulator_indices[54] = 8;
-//    ed_translation_manipulator_indices[55] = 9;
-//    ed_translation_manipulator_indices[56] = 7;
-//    ed_translation_manipulator_indices[57] = 7;
-//    ed_translation_manipulator_indices[58] = 3;
-//    ed_translation_manipulator_indices[59] = 8;
-//    
-//    
-//    /* planes */
-//    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT    ] = 13;
-//    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 1] = 14;
-//    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 2] = 15;
-//    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 3] = 15;
-//    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 4] = 16;
-//    ed_translation_manipulator_indices[ED_TRANSLATION_MANIPULATOR_SHAFT_INDICE_COUNT + 5] = 13;
-//
-//    /* Y axis */
-//    for(uint32_t index = 0; index < ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT; index++)
-//    {
-//        struct r_i_vertex_t *vert = ed_translation_manipulator_verts + index;
-//        uint32_t offset = index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT;
-//        ed_translation_manipulator_verts[offset].position.x = vert->position.z;
-//        ed_translation_manipulator_verts[offset].position.y = vert->position.x;
-//        ed_translation_manipulator_verts[offset].position.z = vert->position.y;
-//        ed_translation_manipulator_verts[offset].position.w = 1.0;
-//        ed_translation_manipulator_verts[offset].color = vec4_t_c(0.0, 1.0, 0.0, 1.0);
-//    }
-//    
-//    /* Z axis */
-//    for(uint32_t index = 0; index < ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT; index++)
-//    {
-//        struct r_i_vertex_t *vert = ed_translation_manipulator_verts + index;
-//        uint32_t offset = index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2;
-//        ed_translation_manipulator_verts[offset].position.y = vert->position.z;
-//        ed_translation_manipulator_verts[offset].position.x = vert->position.y;
-//        ed_translation_manipulator_verts[offset].position.z = vert->position.x;
-//        ed_translation_manipulator_verts[offset].position.w = 1.0;
-//        ed_translation_manipulator_verts[offset].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);
-//    }
-//    
-////    for(uint32_t index = 0; index < ED_TRANSLATION_MANIPULATOR_PLANE_VERT_COUNT; index++)
-////    {
-////        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT].color = vec4_t_c(0.0, 1.0, 0.0, 1.0);
-////        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT + ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);
-////        ed_translation_manipulator_verts[index + ED_TRANSLATION_MANIPULATOR_AXIS_VERT_COUNT * 2 + ED_TRANSLATION_MANIPULATOR_SHAFT_VERT_COUNT].color = vec4_t_c(1.0, 0.0, 0.0, 1.0);
-////    }
-//    
-//    uint32_t size = ED_TRANSLATION_MANIPULATOR_VERT_COUNT * sizeof(struct r_i_vertex_t);
-//    ed_translation_manipulator_vert_chunk = r_AllocChunk(r_vertex_heap, size, sizeof(struct r_i_vertex_t));
-//    r_FillBufferChunk(ed_translation_manipulator_vert_chunk, ed_translation_manipulator_verts, size, 0);
-//    
-//    size = ED_TRANSLATION_MANIPULATOR_INDICE_COUNT * sizeof(uint32_t);
-//    ed_translation_manipulator_index_chunk = r_AllocChunk(r_index_heap, size, sizeof(uint32_t));
-//    r_FillBufferChunk(ed_translation_manipulator_index_chunk, ed_translation_manipulator_indices, size, 0);
 }
 
 void ed_Shutdown()
@@ -563,10 +293,22 @@ void ed_Main(float delta_time)
         g_Quit();
     }
     
-    if(in_GetKeyState(SDL_SCANCODE_SPACE) & IN_INPUT_STATE_JUST_PRESSED)
-    {
-        r_Fullscreen(1);
-    }
+//    if(in_GetKeyState(SDL_SCANCODE_SPACE) & IN_INPUT_STATE_JUST_PRESSED)
+//    {
+//        r_Fullscreen(1);
+//    }
+    
+//    if((in_GetKeyState(SDL_SCANCODE_LSHIFT) & IN_INPUT_STATE_PRESSED) &&
+//       (in_GetKeyState(SDL_SCANCODE_S) & IN_INPUT_STATE_JUST_PRESSED))
+//    {
+//        ed_SaveLevel("FUCK");
+//    }
+//    
+//    if((in_GetKeyState(SDL_SCANCODE_LSHIFT) & IN_INPUT_STATE_PRESSED) &&
+//       (in_GetKeyState(SDL_SCANCODE_L) & IN_INPUT_STATE_JUST_PRESSED))
+//    {
+//        ed_LoadLevel("FUCK");
+//    }
     
     ed_DrawLayout();
     ed_UpdateWindows();
@@ -611,10 +353,14 @@ void ed_UpdateWindows()
 }
 
 void ed_DrawLayout()
-{    
+{
+    vec2_t window_size;
+    r_GetWindowSize(&window_size);    
+    
     igSetNextWindowPos((ImVec2){0.0, 0.0}, 0, (ImVec2){0.0, 0.0});
-    igSetNextWindowSize((ImVec2){1360, 760}, 0);
+    igSetNextWindowSize((ImVec2){window_size.x, window_size.y}, 0);
     igPushStyleVarVec2(ImGuiStyleVar_WindowMinSize, (ImVec2){0.0, 0.0});
+//    igPushStyleVarVec2(ImGuiStyleVar_WindowPadding, (ImVec2){0.0, 0.0});
     igPushStyleVarFloat(ImGuiStyleVar_WindowRounding, 0.0);
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoCollapse;
     window_flags |= ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize;
@@ -627,106 +373,302 @@ void ed_DrawLayout()
     struct ed_editor_window_t *active_window = NULL;
     
     char window_name[512];
+//    char path[512];
     
     if(igBeginMenuBar())
     {
-        if(igBeginMenu("FUCK", 1))
+        if(igBeginMenu("File", 1))
         {
-            igMenuItemBool("ASS", NULL, 0, 1);
-            igMenuItemBool("ASS", NULL, 0, 1);
-            igMenuItemBool("ASS", NULL, 0, 1);
-            igEndMenu();
-        }
-        if(igBeginMenu("SHIT", 1))
-        {
-            igMenuItemBool("ASS", NULL, 0, 1);
-            igMenuItemBool("ASS", NULL, 0, 1);
-            igMenuItemBool("ASS", NULL, 0, 1);
+            if(igMenuItemBool("New", NULL, 0, 1))
+            {
+                ed_NewLevel();
+            }
+            if(igMenuItemBool("Save", NULL, 0, ed_current_level.level_path))
+            {
+                if(ed_current_level.level_path[0] == '\0')
+                {
+                    ed_OpenBrowser(ED_BROWSER_MODE_SAVE);
+                }
+                else
+                {
+                    ed_SaveLevel(ds_path_AppendPath(ed_current_level.level_path, ed_current_level.data.level_name));
+                }
+            }
+            if(igMenuItemBool("Save as...", NULL, 0, 1))
+            {
+                ed_OpenBrowser(ED_BROWSER_MODE_SAVE);
+            }
+            if(igMenuItemBool("Load", NULL, 0, 1))
+            {
+                ed_OpenBrowser(ED_BROWSER_MODE_LOAD);
+            }
             igEndMenu();
         }
         igEndMenuBar();
     }
+    
+    if(ed_browser_state.browser_open)
+    {
+        igSetNextWindowFocus();
+        igSetNextWindowSize((ImVec2){window_size.x, window_size.y}, ImGuiCond_Always);
+        igSetNextWindowPos((ImVec2){0.0, 0.0}, 0, (ImVec2){0.0, 0.0});
+        if(igBegin("Browser", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            if(igBeginChildStr("address_bar", (ImVec2){0.0, 60.0}, 0, 0))
+            {
+                strcpy(ed_browser_state.path, ed_browser_state.current_dir.path);
+                uint32_t edited = igInputText("Path", ed_browser_state.path, PATH_MAX, ImGuiInputTextFlags_EnterReturnsTrue, NULL, NULL);
+                edited |= igIsItemDeactivatedAfterEdit();
+                
+                if(edited)
+                {
+                    if(ds_dir_IsDir(ds_path_FormatPath(ed_browser_state.path)))
+                    {
+                        ds_dir_OpenDir(&ed_browser_state.current_dir, ed_browser_state.path);
+                    }
+                }
+                
+                igSameLine(0.0, -1.0);
+                
+                if(igButton("Up", (ImVec2){60.0, 20.0}))
+                {
+                    if(ds_dir_IsDir(ds_path_DropPath(&ed_browser_state.path)))
+                    {
+                        ds_dir_GoUp(&ed_browser_state.current_dir);
+                    }
+                }
+                igSameLine(0.0, -1.0);
+                if(igButton("Close", (ImVec2){60.0, 20.0}))
+                {
+                    ed_CloseBrowser();
+                }
+                
+                igInputText("Name", ed_browser_state.file_name, PATH_MAX, ImGuiInputTextFlags_EnterReturnsTrue, NULL, NULL);
+                if(!igIsItemActive() && (in_GetKeyState(SDL_SCANCODE_RETURN) & IN_INPUT_STATE_JUST_PRESSED))
+                {
+                    switch(ed_browser_state.mode)
+                    {
+                        case ED_BROWSER_MODE_SAVE:
+                            ed_SaveLevel(ds_path_AppendPath(ed_browser_state.path, ed_browser_state.file_name));
+                            ed_CloseBrowser();
+                        break;
+                        
+                        case ED_BROWSER_MODE_LOAD:
+                            ed_LoadLevel(ds_path_AppendPath(ed_browser_state.path, ed_browser_state.file_name));
+                            ed_CloseBrowser();
+                        break;
+                    }
+                }
+                
+                igSameLine(0.0, -1.0);
+                
+                switch(ed_browser_state.mode)
+                {
+                    case ED_BROWSER_MODE_SAVE:
+                        if(igButton("Save", (ImVec2){60.0, 20.0}))
+                        {
+                            ed_SaveLevel(ds_path_AppendPath(ed_browser_state.path, ed_browser_state.file_name));
+                            ed_CloseBrowser();
+                        }
+                    break;
+                    
+                    case ED_BROWSER_MODE_LOAD:
+                        if(igButton("Load", (ImVec2){60.0, 20.0}))
+                        {
+                            ed_LoadLevel(ds_path_AppendPath(ed_browser_state.path, ed_browser_state.file_name));
+                            ed_CloseBrowser();
+                        }
+                    break;
+                }
+            }
+            igEndChild();
+
+            igSeparator();
+            
+            igColumns(2, "columns", 1);
+            igSetColumnWidth(-1, 400);
+            if(igBeginChildStr("recent", (ImVec2){0.0, 0.0}, 0, 0))
+            {
+                
+            }
+            igEndChild();
+            igNextColumn();
+            
+            ImVec2 content_size;
+            igGetContentRegionMax(&content_size);
+            
+            if(igBeginChildStr("dir_list", (ImVec2){0.0, 0.0}, 0, 0))
+            {
+                if(igListBoxHeaderVec2("", (ImVec2){-8.0, -8.0}))
+                {
+                    for(uint32_t entry_index = 0; entry_index < ed_browser_state.current_dir.entry_count; entry_index++)
+                    {
+                        struct ds_dir_entry_t *entry = ed_browser_state.current_dir.entries + entry_index;
+                        if(igSelectableBool(entry->name, 0, 0, (ImVec2){0.0, 0.0}))
+                        {
+                            switch(entry->type)
+                            {
+                                case DS_DIR_ENTRY_TYPE_DIR:
+                                    ds_dir_GoDown(&ed_browser_state.current_dir, entry->name);
+                                break;
+                                
+                                case DS_DIR_ENTRY_TYPE_PARENT:
+                                    ds_dir_GoUp(&ed_browser_state.current_dir);
+                                break;
+                                
+                                case DS_DIR_ENTRY_TYPE_FILE:
+                                    strcpy(ed_browser_state.file_name, entry->name);
+                                break;
+                            }                            
+                        }
+                        
+                    }
+                    igListBoxFooter();
+                }
+            }
+            igEndChild();
+            
+        }
+        igEnd();
+    }
+    
 
     ImGuiContext *context = igGetCurrentContext();
     struct ed_editor_window_t *window = ed_windows;
-    
     in_GetMousePos(&mouse_x, &mouse_y);
-    
+    ed_active_window = NULL;
     while(window)
     {
-        switch(window->type)
-        {
-            case ED_EDITOR_WINDOW_TYPE_VIEWPORT:
-            {
-                sprintf(window_name, "Viewport-%p", window);
-//                ImGuiID node_id = igDockContextGenNodeID(context);
-//                node_id = igDockBuilderAddNode(node_id, ImGuiDockNodeFlags_DockSpace);
-//                igDockBuilderSetNodePos(node_id, (ImVec2){0.0, 0.0});
-//                igDockBuilderSetNodeSize(node_id, (ImVec2){200.0, 200.0});
-//                ImGuiID another_id = igDockBuilderSplitNode(node_id, ImGuiDir_Down, 0.5, NULL, NULL);
-//                igDockBuilderDockWindow("Child0", node_id);
-//                igDockBuilderFinish(node_id);
-//                
-//                igDockSpace(node_id, (ImVec2){0.0, 0.0}, ImGuiDockNodeFlags_PassthruCentralNode, NULL);
-//                igSetNextWindowSize((ImVec2){200.0, 200.0}, 0);
-                struct ed_editor_viewport_t *viewport = (struct ed_editor_viewport_t *)window;
-                igSetNextWindowSize((ImVec2){(float)viewport->width, (float)viewport->height}, ImGuiCond_Once);
-                
-                uint32_t window_flags = ImGuiWindowFlags_NoScrollbar;
-                
-                if(ed_active_window == window)
-                {
-                    window_flags |= ImGuiWindowFlags_NoMove;
-                }
-                
-    
-                if(igBegin(window_name, NULL, window_flags))
-                {
-                    struct r_framebuffer_t *framebuffer = r_GetFramebufferPointer(viewport->framebuffer);
-                    struct r_texture_t *texture = r_GetTexturePointer(framebuffer->textures[0]);
-                    ImTextureID texture_id = (void *)framebuffer->textures[0].index;
-                    igImage(texture_id, (ImVec2){(float) viewport->width, (float) viewport->height}, 
-                            (ImVec2){0.0, 0.0}, (ImVec2){1.0, 1.0}, (ImVec4){1.0, 1.0, 1.0, 1.0}, (ImVec4){0.0, 0.0, 0.0, 0.0});
-                    
-                    if(igIsItemHovered(0))
-                    {
-                        active_window = window;
-                    }
-                    
-                    ImVec2 content_min;
-                    ImVec2 content_max;
-                    igGetWindowContentRegionMax(&content_max);
-                    igGetWindowContentRegionMin(&content_min);
-                    
-                    content_max.x -= content_min.x;
-                    content_max.y -= content_min.y;
-                    ImVec2 position;
-                    igGetItemRectMin(&position);
-                     
-                    if(viewport->width != (uint32_t)content_max.x || (uint32_t)viewport->height != content_max.y)
-                    {
-                        viewport->width = (uint32_t)content_max.x;
-                        viewport->height = (uint32_t)content_max.y;
-                        r_ResizeFramebuffer(viewport->framebuffer, viewport->width, viewport->height);
-                    }
-                    
-                    viewport->x = position.x;
-                    viewport->y = position.y;
-                    viewport->mouse_x = mouse_x - viewport->x;
-                    viewport->mouse_y = mouse_y - viewport->y;
-                }
-                igEnd();
-            }
-            break;
-        }
+        uint32_t hovered = window->attached_context->layout_function(window->attached_context->context_data, window);
         
+        window->focused = 0;
+        
+        if(!window->attached_context->hold_focus && hovered)
+        {
+            ed_active_window = window;
+            window->focused = 1;
+        }
+
         window = window->next;
     }
     
     igEnd();
     
-    ed_active_window = active_window;
+//    ed_active_window = active_window;
 } 
+
+/*
+=============================================================
+=============================================================
+=============================================================
+*/
+
+void ed_OpenBrowser(uint32_t mode)
+{
+    ed_browser_state.browser_open = 1;
+    ed_browser_state.mode = mode;
+    ds_dir_OpenDir(&ed_browser_state.current_dir, ed_browser_state.path);
+}
+
+void ed_CloseBrowser()
+{
+    ed_browser_state.browser_open = 0;
+}
+
+void ed_LoadLevel(char *file_path)
+{
+    file_path = ds_path_AppendExt(file_path, ".lvl");
+    FILE *file = fopen(file_path, "rb");
+    void *level_buffer;
+    uint32_t level_buffer_size;
+    read_file(file, &level_buffer, &level_buffer_size);
+    ed_UnserializeLevel(level_buffer);
+    mem_Free(level_buffer);
+    
+    char *file_path_no_ext = ds_path_GetPathAndFileNameNoExt(file_path);
+    
+    strcpy(ed_current_level.level_path, ds_path_GetPath(file_path_no_ext));
+    strcpy(ed_current_level.data.level_name, ds_path_GetFileName(file_path_no_ext));
+    SDL_SetWindowTitle(r_window, ed_current_level.data.level_name);
+}
+
+void ed_SaveLevel(char *file_path)
+{
+    void *level_buffer;
+    uint32_t level_buffer_size;
+    
+    file_path = ds_path_AppendExt(file_path, ".lvl");
+    
+    ed_SerializeLevel(&level_buffer, &level_buffer_size);
+    FILE *file = fopen(file_path, "wb");
+    fwrite(level_buffer, 1, level_buffer_size, file);
+    fclose(file);
+    mem_Free(level_buffer);
+    
+    char *file_path_no_ext = ds_path_GetPathAndFileNameNoExt(file_path);
+    
+    strcpy(ed_current_level.level_path, ds_path_GetPath(file_path_no_ext));
+    strcpy(ed_current_level.data.level_name, ds_path_GetFileName(file_path_no_ext));
+    SDL_SetWindowTitle(r_window, ed_current_level.data.level_name);
+}
+
+void ed_NewLevel()
+{
+    ed_current_level.data.level_name[0] = '\0';
+    ed_current_level.level_path[0] = '\0';
+    
+    for(uint32_t context_index = 0; context_index < ED_CONTEXT_LAST; context_index++)
+    {
+        ed_contexts[context_index].reset_function(ed_contexts[context_index].context_data);
+    }
+}
+
+void ed_SerializeLevel(void **buffer, uint32_t *buffer_size)
+{
+    struct ds_section_t section = {};
+    strcpy(section.data.name, "level");
+    void *brush_buffer = NULL;
+    uint32_t brush_buffer_size = 0;
+    
+    ed_SerializeBrushes(&brush_buffer, &brush_buffer_size);
+    ds_append_record(&section, "brushes", brush_buffer_size, brush_buffer);
+    
+    
+    uint32_t level_buffer_size = sizeof(struct ed_level_data_t);
+    void *level_buffer = mem_Calloc(1, level_buffer_size);
+    struct ed_level_data_t *level_data = (struct ed_level_data_t *)level_buffer;
+    
+    strcpy(level_data->level_name, ed_current_level.data.level_name);
+    ds_append_record(&section, "level", level_buffer_size, level_buffer);
+    mem_Free(level_buffer);
+    
+    ds_serialize_section(&section, buffer, buffer_size);
+    ds_free_section(&section);
+}
+
+void ed_UnserializeLevel(void *buffer)
+{    
+    struct ed_world_context_data_t *data;
+    struct ds_section_t section = ds_unserialize_section(buffer);
+    
+    struct ds_record_t *brush_record = ds_find_record(&section, "brushes");
+    ed_UnserializeBrushes(brush_record->data.data);
+    
+    struct ds_record_t *level_record = ds_find_record(&section, "level");
+    struct ed_level_data_t *level_data = (struct ed_level_data_t *)&level_record->data;
+    
+    memcpy(&ed_current_level.data, level_data, sizeof(struct ed_level_data_t));
+    
+    struct stack_list_t *brushes = bsh_GetBrushList();
+    data = ed_contexts[ED_CONTEXT_WORLD].context_data;
+    for(uint32_t brush_index = 0; brush_index < brushes->cursor; brush_index++)
+    {
+        struct bsh_brush_h handle = BSH_BRUSH_HANDLE(brush_index);
+        ed_w_ctx_CreateBrushObjectFromBrush(&data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects, handle);
+    }
+    
+    ds_free_section(&section);
+}
 
 /*
 =============================================================

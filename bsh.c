@@ -8,6 +8,7 @@
 //struct bsh_brush_t *bsh_last_brush = NULL;
 
 struct stack_list_t bsh_brushes;
+//uint32_t ed_brush_count = 0;
 
 uint32_t bsh_cube_brush_vert_count = 8;
 vec3_t bsh_cube_brush_verts[] = 
@@ -28,7 +29,12 @@ vec3_t bsh_cube_brush_verts[] =
 //struct r_vertex_t *bsh_draw_verts;
 //uint32_t bsh_max_draw_indices;
 //uint32_t *bsh_draw_indices;
+uint32_t ed_total_vertice_count = 0;
+uint32_t ed_total_face_count = 0;
+uint32_t ed_total_indice_count = 0;
 
+uint32_t *bsh_old_face_indices = NULL;
+uint32_t bsh_old_face_indices_count = 0;
 uint32_t bsh_cube_brush_indice_count = 24;
 uint32_t bsh_cube_brush_indices[] = 
 {
@@ -50,44 +56,6 @@ uint32_t bsh_cube_brush_indices[] =
     /* -Y */
     1, 5, 6, 2
 };
-//struct r_vertex_t bsh_cube_brush_verts[] = 
-//{
-//    /* +X */
-//    (struct r_vertex_t){.position = { 0.5, 0.5, 0.5, 1.0}, .normal = { 1.0, 0.0, 0.0, 0.0}, /*.tangent = { 0.0, 0.0, 1.0},*/ .tex_coords = {0.0, 0.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = { 0.5,-0.5, 0.5, 1.0}, .normal = { 1.0, 0.0, 0.0, 0.0}, /*.tangent = { 0.0, 0.0, 1.0},*/ .tex_coords = {0.0, 1.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = { 0.5,-0.5,-0.5, 1.0}, .normal = { 1.0, 0.0, 0.0, 0.0}, /*.tangent = { 0.0, 0.0, 1.0},*/ .tex_coords = {1.0, 1.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = { 0.5, 0.5,-0.5, 1.0}, .normal = { 1.0, 0.0, 0.0, 0.0}, /*.tangent = { 0.0, 0.0, 1.0},*/ .tex_coords = {1.0, 0.0, 0.0, 0.0}},
-//    
-//    /* -X */
-//    (struct r_vertex_t){.position = {-0.5, 0.5,-0.5, 1.0}, .normal = {-1.0, 0.0, 0.0, 0.0}, /*.tangent = { 0.0, 0.0,-1.0},*/ .tex_coords = {0.0, 0.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = {-0.5,-0.5,-0.5, 1.0}, .normal = {-1.0, 0.0, 0.0, 0.0}, /*.tangent = { 0.0, 0.0,-1.0},*/ .tex_coords = {0.0, 1.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = {-0.5,-0.5, 0.5, 1.0}, .normal = {-1.0, 0.0, 0.0, 0.0}, /*.tangent = { 0.0, 0.0,-1.0},*/ .tex_coords = {1.0, 1.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = {-0.5, 0.5, 0.5, 1.0}, .normal = {-1.0, 0.0, 0.0, 0.0}, /*.tangent = { 0.0, 0.0,-1.0},*/ .tex_coords = {1.0, 0.0, 0.0, 0.0}},
-//    
-//    /* +Y */
-//    (struct r_vertex_t){.position = {-0.5, 0.5,-0.5, 1.0}, .normal = { 0.0, 1.0, 0.0, 0.0}, /*.tangent = {-1.0, 0.0, 1.0},*/ .tex_coords = {0.0, 0.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = {-0.5, 0.5, 0.5, 1.0}, .normal = { 0.0, 1.0, 0.0, 0.0}, /*.tangent = {-1.0, 0.0, 1.0},*/ .tex_coords = {0.0, 1.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = { 0.5, 0.5, 0.5, 1.0}, .normal = { 0.0, 1.0, 0.0, 0.0}, /*.tangent = {-1.0, 0.0, 1.0},*/ .tex_coords = {1.0, 1.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = { 0.5, 0.5,-0.5, 1.0}, .normal = { 0.0, 1.0, 0.0, 0.0}, /*.tangent = {-1.0, 0.0, 1.0},*/ .tex_coords = {1.0, 0.0, 0.0, 0.0}},
-//    
-//    /* -Y */
-//    (struct r_vertex_t){.position = {-0.5,-0.5, 0.5, 1.0}, .normal = { 0.0,-1.0, 0.0, 0.0}, /*.tangent = { 1.0, 0.0, 1.0},*/ .tex_coords = {0.0, 0.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = {-0.5,-0.5,-0.5, 1.0}, .normal = { 0.0,-1.0, 0.0, 0.0}, /*.tangent = { 1.0, 0.0, 1.0},*/ .tex_coords = {0.0, 1.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = { 0.5,-0.5,-0.5, 1.0}, .normal = { 0.0,-1.0, 0.0, 0.0}, /*.tangent = { 1.0, 0.0, 1.0},*/ .tex_coords = {1.0, 1.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = { 0.5,-0.5, 0.5, 1.0}, .normal = { 0.0,-1.0, 0.0, 0.0}, /*.tangent = { 1.0, 0.0, 1.0},*/ .tex_coords = {1.0, 0.0, 0.0, 0.0}},
-//    
-//    /* +Z */
-//    (struct r_vertex_t){.position = {-0.5, 0.5, 0.5, 1.0}, .normal = { 0.0, 0.0, 1.0, 0.0}, /*.tangent = { 1.0, 0.0, 0.0},*/ .tex_coords = {0.0, 0.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = {-0.5,-0.5, 0.5, 1.0}, .normal = { 0.0, 0.0, 1.0, 0.0}, /*.tangent = { 1.0, 0.0, 0.0},*/ .tex_coords = {0.0, 1.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = { 0.5,-0.5, 0.5, 1.0}, .normal = { 0.0, 0.0, 1.0, 0.0}, /*.tangent = { 1.0, 0.0, 0.0},*/ .tex_coords = {1.0, 1.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = { 0.5, 0.5, 0.5, 1.0}, .normal = { 0.0, 0.0, 1.0, 0.0}, /*.tangent = { 1.0, 0.0, 0.0},*/ .tex_coords = {1.0, 0.0, 0.0, 0.0}},
-//    
-//    /* -Z */
-//    (struct r_vertex_t){.position = {-0.5,-0.5,-0.5, 1.0}, .normal = { 0.0, 0.0,-1.0, 0.0}, /*.tangent = {-1.0, 0.0, 0.0},*/ .tex_coords = {0.0, 0.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = {-0.5, 0.5,-0.5, 1.0}, .normal = { 0.0, 0.0,-1.0, 0.0}, /*.tangent = {-1.0, 0.0, 0.0},*/ .tex_coords = {0.0, 1.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = { 0.5, 0.5,-0.5, 1.0}, .normal = { 0.0, 0.0,-1.0, 0.0}, /*.tangent = {-1.0, 0.0, 0.0},*/ .tex_coords = {1.0, 1.0, 0.0, 0.0}},
-//    (struct r_vertex_t){.position = { 0.5,-0.5,-0.5, 1.0}, .normal = { 0.0, 0.0,-1.0, 0.0}, /*.tangent = {-1.0, 0.0, 0.0},*/ .tex_coords = {1.0, 0.0, 0.0, 0.0}},
-//};
 
 void bsh_Init()
 {
@@ -102,18 +70,13 @@ struct bsh_brush_h bsh_CreateBrush(vec3_t *position, mat3_t *orientation, vec3_t
     handle.index = add_stack_list_element(&bsh_brushes, NULL);
     brush = get_stack_list_element(&bsh_brushes, handle.index);
     
-    brush->start = 0;
-    brush->count = 0;
-    brush->vertex_offset = 0;
-    
-    brush->face_indice_count = 0;
+    memset(brush, 0, sizeof(struct ed_brush_t));
     
     brush->type = type;
-    brush->subtractive = 0;
     brush->position = *position;
     brush->scale = *scale;
     brush->orientation = *orientation;
-    brush->polygons = NULL;
+//    ed_brush_count++;
     
     return handle;
 }
@@ -143,12 +106,16 @@ struct bsh_brush_h bsh_CreateCubeBrush(vec3_t *position, mat3_t *orientation, ve
         brush->vertices[vert_index].z *= scale->z;
     }
     
+    brush->vertice_count = bsh_cube_brush_vert_count;
+    brush->polygon_count = 6;
+    
     for(uint32_t polygon_index = 0; polygon_index < 6; polygon_index++)
     {        
         polygon = mem_Calloc(1, sizeof(struct ed_brush_face_t));
         polygon->next = NULL;
         polygon->indice_count = 4;
         polygon->indices = brush->face_indices + brush->face_indice_count;
+        
         
         for(uint32_t index = 0; index < 4; index++)
         {
@@ -178,6 +145,56 @@ struct bsh_brush_h bsh_CreateCylinderBrush(vec3_t *position, mat3_t *orientation
     return BSH_INVALID_BRUSH_HANDLE;
 }
 
+struct bsh_brush_h ed_CopyBrush(struct bsh_brush_h handle)
+{
+    struct ed_brush_t *brush = ed_GetBrushPointer(handle);
+    struct ed_brush_t *new_brush;
+    struct bsh_brush_h new_handle = BSH_INVALID_BRUSH_HANDLE;
+    
+    if(brush)
+    {
+        new_handle = bsh_CreateBrush(&brush->position, &brush->orientation, &brush->scale, brush->type);
+        new_brush = ed_GetBrushPointer(new_handle);
+        
+        new_brush->face_indice_count = brush->face_indice_count;
+        new_brush->face_indices = mem_Calloc(new_brush->face_indice_count, sizeof(uint32_t));
+        memcpy(new_brush->face_indices, brush->face_indices, sizeof(uint32_t) * new_brush->face_indice_count);
+        
+        new_brush->vertice_count = brush->vertice_count;
+        new_brush->vertices = mem_Calloc(new_brush->vertice_count, sizeof(vec3_t));
+        memcpy(new_brush->vertices, brush->vertices, sizeof(vec3_t) * new_brush->vertice_count);
+        
+        struct ed_brush_face_t *face = brush->polygons;
+        new_brush->face_indice_count = 0;
+        new_brush->polygon_count = brush->polygon_count;
+        while(face)
+        {
+            struct ed_brush_face_t *new_face;
+            new_face = mem_Calloc(1, sizeof(struct ed_brush_face_t));
+            memcpy(new_face, face, sizeof(struct ed_brush_face_t));
+            new_face->indices = new_brush->face_indices + new_brush->face_indice_count;
+            new_brush->face_indice_count += new_face->indice_count;
+            
+            if(!new_brush->polygons)
+            {
+                new_brush->polygons = new_face;
+            }
+            else
+            {
+                new_brush->last_polygon->next = new_face;
+            }
+            new_brush->last_polygon = new_face;
+            
+            face = face->next;
+        }
+        
+        bsh_UpdateDrawTriangles(new_handle);
+//        ed_brush_count++;
+    }
+    
+    return new_handle;
+}
+
 void bsh_DestroyBrush(struct bsh_brush_h handle)
 {
     struct bsh_polygon_t *next_polygon;
@@ -187,16 +204,32 @@ void bsh_DestroyBrush(struct bsh_brush_h handle)
     
     if(brush)
     {        
+//        ed_brush_count--;
+        
+        mem_Free(brush->vertices);
+        mem_Free(brush->draw_vertices);
+        mem_Free(brush->draw_indices);
+        
+        r_FreeChunk(brush->draw_vertices_chunk);
+        r_FreeChunk(brush->draw_indices_chunk);
+        
         while(brush->polygons)
         {
             next_polygon = brush->polygons->next;
-//            mem_Free(brush->polygons->vertices);
             mem_Free(brush->polygons);
             brush->polygons = next_polygon;
         }
         
         brush->type = BSH_BRUSH_TYPE_NONE;
         remove_stack_list_element(&bsh_brushes, handle.index);
+    }
+}
+
+void ed_DestroyAllBrushes()
+{
+    for(uint32_t brush_index = 0; brush_index < bsh_brushes.cursor; brush_index++)
+    {
+        bsh_DestroyBrush(BSH_BRUSH_HANDLE(brush_index));
     }
 }
 
@@ -244,6 +277,17 @@ void bsh_TranslateBrush(struct bsh_brush_h handle, vec3_t *translation)
     if(brush)
     {
         vec3_t_add(&brush->position, &brush->position, translation);
+    }
+}
+
+void bsh_RotateBrush(struct bsh_brush_h handle, mat3_t *rotation)
+{
+    struct ed_brush_t *brush;
+    brush = ed_GetBrushPointer(handle);
+    
+    if(brush)
+    {
+        mat3_t_mul(&brush->orientation, &brush->orientation, rotation);
     }
 }
 
@@ -336,8 +380,7 @@ void bsh_UpdateDrawTriangles(struct bsh_brush_h handle)
             brush->draw_vertices[draw_verts_offset + vert_index].normal.y = normal.y;
             brush->draw_vertices[draw_verts_offset + vert_index].normal.z = normal.z;
             brush->draw_vertices[draw_verts_offset + vert_index].normal.w = 0.0;
-        }
-        
+        }    
         polygon->draw_indices_start = draw_indices_offset;
         for(uint32_t indice_index = 1; indice_index < polygon->indice_count - 1;)
         {
@@ -372,16 +415,37 @@ void ed_ExtrudeBrushFace(struct bsh_brush_h handle, uint32_t face_index)
     if(brush)
     {
         face = ed_GetBrushFacePointer(handle, face_index);
-        
-        /* new vertices are going to be created, and those new vertices will be fully used by the extruded face, and 
-        partially by the faces created from the extrusion. */
-        brush->vertices = mem_Realloc(brush->vertices, sizeof(vec3_t) * (brush->vertice_count + face->indice_count));
         /* the new faces will be quads, and the number of new faces is 
         equal to the number of edges in the extruded face, which is the
         same as the number of vertices. Each new face will need four
         indices, hence the 4 */
         brush->face_indices = mem_Realloc(brush->face_indices, sizeof(uint32_t) * (brush->face_indice_count + face->indice_count * 4));
+        struct ed_brush_face_t *faces = brush->polygons;
+        uint32_t indice_offset = 0;
+        while(faces)
+        {
+            faces->indices = brush->face_indices + indice_offset;
+            indice_offset += faces->indice_count;
+            faces = faces->next;
+        }
         
+        if(face->indice_count > bsh_old_face_indices_count)
+        {
+            bsh_old_face_indices_count = face->indice_count;
+            bsh_old_face_indices = mem_Realloc(bsh_old_face_indices, sizeof(uint32_t) * bsh_old_face_indices_count);
+        }
+        
+        memcpy(bsh_old_face_indices, face->indices, sizeof(uint32_t) * face->indice_count);
+        
+        /* new vertices are going to be created, and those new vertices will be fully used by the extruded face, and 
+        partially by the faces created from the extrusion. */
+        brush->vertices = mem_Realloc(brush->vertices, sizeof(vec3_t) * (brush->vertice_count + face->indice_count));
+        for(uint32_t vertice_index = 0; vertice_index < face->indice_count; vertice_index++)
+        {
+            brush->vertices[brush->vertice_count + vertice_index] = brush->vertices[face->indices[vertice_index]];
+            face->indices[vertice_index] = brush->vertice_count + vertice_index;
+        }
+                
         for(uint32_t vertice_index = 0; vertice_index < face->indice_count; vertice_index++)
         {
             new_face = mem_Calloc(1, sizeof(struct ed_brush_face_t));
@@ -389,12 +453,12 @@ void ed_ExtrudeBrushFace(struct bsh_brush_h handle, uint32_t face_index)
             new_face->indices = brush->face_indices + brush->face_indice_count;
             
             /* first two verts are the old verts of extruded face */
-            new_face->indices[0] = face->indices[edge_index];
-            new_face->indices[1] = face->indices[edge_index % face->indice_count];
+            new_face->indices[0] = bsh_old_face_indices[vertice_index];
+            new_face->indices[1] = bsh_old_face_indices[(vertice_index + 1) % face->indice_count];
             
             /* the rest are the new verts of the extruded face */
-            new_face->indices[2] = face->indices[edge_index % face->indice_count] + brush->vertice_count;
-            new_face->indices[3] = face->indices[edge_index] + brush->vertice_count;
+            new_face->indices[2] = face->indices[(vertice_index + 1) % face->indice_count];
+            new_face->indices[3] = face->indices[vertice_index];
             
             vec3_t edge0;
             vec3_t edge1;
@@ -406,9 +470,132 @@ void ed_ExtrudeBrushFace(struct bsh_brush_h handle, uint32_t face_index)
             brush->last_polygon = new_face;
             
             brush->face_indice_count += 4;
+            brush->polygon_count++;
         }
         
         brush->vertice_count += face->indice_count;
+    }
+}
+
+void ed_SerializeBrushes(void **buffer, uint32_t *buffer_size)
+{
+    uint32_t size = 0;
+    struct ed_brush_header_t *header;
+    char *output;
+    
+    size = sizeof(struct ed_brush_header_t);
+    size += (sizeof(struct ed_brush_data_t) + sizeof(struct ed_brush_vertice_data_t)) * bsh_brushes.used;
+    
+    for(uint32_t brush_index = 0; brush_index < bsh_brushes.cursor; brush_index++)
+    {
+        struct ed_brush_t *brush = ed_GetBrushPointer(BSH_BRUSH_HANDLE(brush_index));
+        if(brush)
+        {
+            size += sizeof(struct ed_brush_face_data_t) * brush->polygon_count;
+            size += sizeof(uint32_t) * brush->face_indice_count;
+            size += sizeof(vec3_t) * brush->vertice_count;
+        }
+    }
+    
+    output = mem_Calloc(1, size);
+    
+    *buffer = output;
+    *buffer_size = size;
+    
+    header = (struct ed_brush_header_t *)output;
+    output += sizeof(struct ed_brush_header_t);
+    
+    header->brush_count = bsh_brushes.used;
+    
+    for(uint32_t brush_index = 0; brush_index < bsh_brushes.cursor; brush_index++)
+    {
+        struct ed_brush_t *brush = ed_GetBrushPointer(BSH_BRUSH_HANDLE(brush_index));
+        
+        if(brush)
+        {
+            struct ed_brush_data_t *brush_data = output;
+            output += sizeof(struct ed_brush_data_t);
+            
+            brush_data->face_count = brush->polygon_count;
+            brush_data->indice_count = brush->face_indice_count;
+            brush_data->vertice_count = brush->vertice_count;
+            brush_data->type = brush->type;
+            brush_data->position = brush->position;
+            brush_data->size = brush->scale;
+            brush_data->orientation = brush->orientation;
+            
+            struct ed_brush_face_t *face = brush->polygons;
+            while(face)
+            {
+                struct ed_brush_face_data_t *face_data = output;
+                output += sizeof(struct ed_brush_face_data_t) + sizeof(uint32_t) * face->indice_count;
+                
+                strcpy(face_data->material, "default");
+                memcpy(face_data->indices, face->indices, sizeof(uint32_t) * face->indice_count);
+                face_data->uv_rotation = 0.0;
+                face_data->u_scale = 1.0;
+                face_data->v_scale = 1.0;
+                face_data->indice_count = face->indice_count;
+                face_data->tex_coord_mode = ED_TEX_COORD_MODE_WORLD;
+                face = face->next;
+            }
+            
+            struct ed_brush_vertice_data_t *vertice_data = output;
+            output += sizeof(struct ed_brush_vertice_data_t) + sizeof(vec3_t) * brush->vertice_count;
+            memcpy(vertice_data->vertices, brush->vertices, sizeof(vec3_t) * brush->vertice_count);
+        }
+    }
+}
+
+void ed_UnserializeBrushes(void *buffer)
+{
+    char *input = buffer;
+    struct ed_brush_header_t *header = input;
+    input += sizeof(struct ed_brush_header_t);
+    
+    for(uint32_t brush_index = 0; brush_index < header->brush_count; brush_index++)
+    {
+        struct ed_brush_data_t *brush_data = input;
+        input += sizeof(struct ed_brush_data_t);
+        
+        struct bsh_brush_h handle = bsh_CreateBrush(&brush_data->position, &brush_data->orientation, &brush_data->size, brush_data->type);
+        struct ed_brush_t *brush = ed_GetBrushPointer(handle);
+        
+        brush->type = brush_data->type;
+        brush->vertice_count = brush_data->vertice_count;
+        brush->face_indice_count = brush_data->indice_count;
+        brush->polygon_count = brush_data->face_count;
+        
+        brush->vertices = mem_Calloc(brush_data->vertice_count, sizeof(vec3_t));
+        brush->face_indices = mem_Calloc(brush_data->indice_count, sizeof(uint32_t));
+        uint32_t indice_offset = 0;
+        for(uint32_t face_index = 0; face_index < brush_data->face_count; face_index++)
+        {
+            struct ed_brush_face_data_t *face_data = (struct ed_brush_face_data_t *)input;
+            input += sizeof(struct ed_brush_face_data_t) + face_data->indice_count * sizeof(uint32_t);
+            struct ed_brush_face_t *face = mem_Calloc(1, sizeof(struct ed_brush_face_t ));
+            face->indice_count = face_data->indice_count;
+            face->tex_coord_mode = face_data->tex_coord_mode;
+            face->indices = brush->face_indices + indice_offset;
+            indice_offset += face->indice_count;
+            memcpy(face->indices, face_data->indices, sizeof(uint32_t) * face_data->indice_count);
+            
+            if(!brush->polygons)
+            {
+                brush->polygons = face; 
+            }
+            else
+            {
+                brush->last_polygon->next = face;
+            }
+            
+            brush->last_polygon = face;
+        }
+        
+        struct ed_brush_vertice_data_t *vertice_data = (struct ed_brush_vertice_data_t *)input;
+        input += sizeof(struct ed_brush_vertice_data_t) + sizeof(vec3_t) * brush_data->vertice_count;
+        memcpy(brush->vertices, vertice_data->vertices, sizeof(vec3_t) * brush_data->vertice_count);
+        bsh_UpdateDrawTriangles(handle);
     }
 }
 
