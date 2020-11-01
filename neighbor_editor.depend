@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1600086353 source:c:\users\gabri\documents\compiler\neighbor_editor\ed.c
+1604258577 source:c:\users\gabri\documents\compiler\neighbor_editor\ed.c
 	<stdio.h>
 	<limits.h>
 	"ed.h"
@@ -29,7 +29,7 @@
 1594379098 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\g.h
 	<stdint.h>
 
-1595154925 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ent.c
+1601211934 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ent.c
 	"ent.h"
 	"lib/dstuff/ds_stack_list.h"
 	"lib/dstuff/ds_dbvh.h"
@@ -39,7 +39,7 @@
 	<string.h>
 	<stdlib.h>
 
-1595154906 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ent.h
+1603010511 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ent.h
 	<stdint.h>
 	"lib/dstuff/ds_vector.h"
 	"lib/dstuff/ds_matrix.h"
@@ -51,8 +51,8 @@
 1597017062 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_matrix.h
 	"ds_vector.h"
 
-1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\mdl.h
-	"r_common.h"
+1601039700 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\mdl.h
+	"r_defs.h"
 	<stdint.h>
 
 1598889019 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_common.h
@@ -427,14 +427,14 @@
 	<stdio.h>
 	<string.h>
 
-1600060224 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_list.h
+1600124682 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_list.h
 	<stdint.h>
 	<string.h>
 	<stdlib.h>
 	<stdio.h>
 	"ds_mem.h"
 
-1593151702 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_ringbuffer.h
+1602482595 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_ringbuffer.h
 	<stdint.h>
 	<string.h>
 	<stdlib.h>
@@ -507,7 +507,7 @@
 	<stdio.h>
 	<float.h>
 
-1599590928 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\g.c
+1602488960 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\g.c
 	"lib/SDL/include/SDL.h"
 	"g.h"
 	"in.h"
@@ -525,20 +525,21 @@
 	<stdint.h>
 	"lib/SDL/include/SDL.h"
 
-1596347548 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.h
-	"r_common.h"
+1604259955 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.h
+	"r_defs.h"
 
-1600036698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.h
-	"r_nvkl.h"
+1604259353 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.h
 	"lib/dstuff/ds_matrix.h"
 	"lib/dstuff/ds_list.h"
 	"lib/dstuff/ds_stack_list.h"
 	"lib/dstuff/ds_ringbuffer.h"
-	"spr.h"
-	"mdl.h"
+	"lib/dstuff/ds_alloc.h"
+	"r_defs.h"
+	"r_nvkl.h"
+	"r.h"
 
-1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\spr.h
-	"r_common.h"
+1601039693 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\spr.h
+	"r_defs.h"
 
 1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\phy.h
 	"lib/dstuff/ds_vector.h"
@@ -556,17 +557,19 @@
 1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\scr.h
 	<stdint.h>
 
-1599902010 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\impl.c
+1602540686 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\impl.c
 	"lib/dstuff/ds_vector.h"
 	"lib/dstuff/ds_matrix.h"
 	"lib/dstuff/ds_mem.h"
 	"lib/dstuff/ds_list.h"
 	"lib/dstuff/ds_stack_list.h"
 	"lib/dstuff/ds_ringbuffer.h"
+	"lib/dstuff/ds_stack.h"
 	"lib/dstuff/ds_dbvh.h"
 	"lib/dstuff/ds_path.h"
 	"lib/dstuff/ds_file.h"
 	"lib/dstuff/ds_dir.h"
+	"lib/dstuff/ds_alloc.h"
 	"lib/dstuff/ds_obj.h"
 	"lib/stb/stb_image.h"
 	"lib/stb/stb_image_write.h"
@@ -736,7 +739,7 @@
 	<stdint.h>
 	"imstb_textedit.h"
 
-1599902126 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\mdl.c
+1604259328 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\mdl.c
 	"mdl.h"
 	"lib/dstuff/ds_stack_list.h"
 	"lib/dstuff/ds_file.h"
@@ -769,43 +772,45 @@
 	"lib/dstuff/ds_stack_list.h"
 	"lib/dstuff/ds_dbvh.h"
 
-1600036694 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.c
+1604260083 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_draw.c
 	"r_draw.h"
-	"spr.h"
+	"lib/SDL/include/SDL.h"
 	"lib/dstuff/ds_file.h"
 	"lib/dstuff/ds_path.h"
 	"lib/dstuff/ds_mem.h"
+	"ent.h"
 	<stdlib.h>
 	<stdio.h>
 	<stddef.h>
 
-1599902137 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.c
+1604264739 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_nvkl.c
 	"r_nvkl.h"
 	"lib/dstuff/ds_mem.h"
 	"lib/dstuff/ds_path.h"
 	"lib/dstuff/ds_stack_list.h"
 	"lib/dstuff/ds_ringbuffer.h"
+	"lib/dstuff/ds_alloc.h"
 	"lib/dstuff/ds_list.h"
+	"lib/dstuff/ds_stack.h"
 	<stdlib.h>
 	<string.h>
 	"lib/stb/stb_image.h"
-	"lib/SDL/include/SDL2/SDL_thread.h"
-	"lib/SDL/include/SDL2/SDL_atomic.h"
-	"lib/SDL/include/SDL2/SDL_vulkan.h"
 
 1564029384 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\sdl\include\sdl2\sdl_vulkan.h
 	"SDL_video.h"
 	"begin_code.h"
 	"close_code.h"
 
-1595256884 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_vis.c
+1603012302 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_vis.c
 	"r_vis.h"
-	"r_draw.h"
 	"ent.h"
 	"lib/dstuff/ds_stack_list.h"
+	"lib/dstuff/ds_mem.h"
 	<stdint.h>
 
-1593151698 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_vis.h
+1603012287 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_vis.h
+	"r_draw.h"
+	"lib/dstuff/ds_stack_list.h"
 
 1593151698 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\spr.c
 	"spr.h"
@@ -814,9 +819,10 @@
 	"lib/dstuff/ds_sprpk.h"
 	"lib/stb/stb_image.h"
 
-1600040412 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ui.c
+1604259996 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\ui.c
 	"ui.h"
 	"in.h"
+	"lib/dstuff/ds_mem.h"
 	"r_draw.h"
 	<stdio.h>
 	<stdint.h>
@@ -839,17 +845,17 @@
 	<stdint.h>
 	<type_traits>
 
-1600087733 source:c:\users\gabri\documents\compiler\neighbor_editor\bsh.c
+1602926809 source:c:\users\gabri\documents\compiler\neighbor_editor\bsh.c
 	"bsh.h"
 	"neighbor/lib/dstuff/ds_mem.h"
-	"neighbor/r_draw.h"
+	"neighbor/r.h"
 	<string.h>
 	<stdlib.h>
 
-1600087636 c:\users\gabri\documents\compiler\neighbor_editor\bsh.h
+1602926769 c:\users\gabri\documents\compiler\neighbor_editor\bsh.h
 	"neighbor/lib/dstuff/ds_matrix.h"
 	"neighbor/lib/dstuff/ds_vector.h"
-	"neighbor/r_common.h"
+	"neighbor/r_defs.h"
 	<stdint.h>
 
 1596375866 source:c:\users\gabri\documents\compiler\neighbor_editor\r_ed.c
@@ -873,10 +879,11 @@
 1600092635 c:\users\gabri\documents\compiler\neighbor_editor\ed_w_ctx.h
 	"ed.h"
 
-1600091763 source:c:\users\gabri\documents\compiler\neighbor_editor\ed_w_ctx.c
+1604267358 source:c:\users\gabri\documents\compiler\neighbor_editor\ed_w_ctx.c
 	"ed_w_ctx.h"
 	"neighbor/in.h"
 	"neighbor/ui.h"
+	"neighbor/r.h"
 	"neighbor/r_draw.h"
 	"neighbor/lib/dstuff/ds_obj.h"
 	"neighbor/lib/dstuff/ds_mem.h"
@@ -886,4 +893,52 @@
 	<limits.h>
 	<stdint.h>
 	"ds_path.h"
+
+1604260127 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r_defs.h
+	<stdint.h>
+	"lib/dstuff/ds_stack_list.h"
+	"lib/dstuff/ds_list.h"
+	"lib/dstuff/ds_alloc.h"
+	"lib/dstuff/ds_ringbuffer.h"
+	"lib/dstuff/ds_vector.h"
+	"lib/dstuff/ds_matrix.h"
+	"lib/tinycthread/tinycthread.h"
+	"lib/vulkan/Include/vulkan/vulkan.h"
+	"lib/vulkan/Include/vulkan/vulkan_core.h"
+
+1602621844 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_alloc.h
+	"ds_stack_list.h"
+	"ds_list.h"
+	<stdint.h>
+
+1602257547 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\tinycthread\tinycthread.h
+	<time.h>
+	<pthread.h>
+	<windows.h>
+
+1604259255 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r.h
+	"r_defs.h"
+
+1602257547 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\tinycthread\tinycthread.c
+	"tinycthread.h"
+	<stdlib.h>
+	<signal.h>
+	<sched.h>
+	<unistd.h>
+	<sys/time.h>
+	<errno.h>
+	<process.h>
+	<sys/timeb.h>
+	<winnt.h>
+
+1604259390 source:c:\users\gabri\documents\compiler\neighbor_editor\neighbor\r.c
+	"r.h"
+	"r_nvkl.h"
+	"lib/stb/stb_image.h"
+	"lib/dstuff/ds_mem.h"
+	"lib/dstuff/ds_path.h"
+
+1602619808 c:\users\gabri\documents\compiler\neighbor_editor\neighbor\lib\dstuff\ds_stack.h
+	<stdint.h>
+	"ds_mem.h"
 

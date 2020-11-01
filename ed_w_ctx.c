@@ -1,12 +1,17 @@
 #include "ed_w_ctx.h"
 #include "neighbor/in.h"
 #include "neighbor/ui.h"
+#include "neighbor/r.h"
 #include "neighbor/r_draw.h"
 #include "neighbor/lib/dstuff/ds_obj.h"
 #include "neighbor/lib/dstuff/ds_mem.h"
 
 extern struct ed_context_t ed_contexts[ED_CONTEXT_LAST];
 extern struct r_render_pass_handle_t ed_picking_render_pass;
+extern struct r_shader_handle_t r_flat_vertex_shader;
+extern struct r_shader_handle_t r_flat_fragment_shader;
+extern struct r_shader_handle_t r_lit_vertex_shader;
+extern struct r_shader_handle_t r_lit_fragment_shader;
 struct list_t ed_object_handles;
 struct list_t ed_transform_brush_face_indices;
 
@@ -15,14 +20,16 @@ struct r_i_vertex_t *ed_outline_verts;
 uint32_t ed_max_outline_indices;
 uint32_t *ed_outline_indices;
 
-extern struct r_heap_h r_vertex_heap;
-extern struct r_heap_h r_index_heap;
+//extern struct r_heap_h r_vertex_heap;
+//extern struct r_heap_h r_index_heap;
 extern VkQueue r_draw_queue;
 extern VkFence r_draw_fence;
 
 #define ED_GRID_X_WIDTH 20
 #define ED_GRID_Z_WIDTH 20
 struct r_i_vertex_t *ed_center_grid;
+uint32_t ed_center_grid_vert_count;
+
 struct r_i_vertex_t *ed_creating_brush_verts;
 struct r_i_vertex_t *ed_translation_manipulator_verts;
 uint32_t ed_translation_manipulator_vert_count;
@@ -47,89 +54,96 @@ struct r_chunk_h ed_rotation_manipulator_index_chunk;
 #define ED_ROTATION_MANIPULATOR_RING_VERT_COUNT 32
 #define ED_ROTATION_MANIPULATOR_RING_INDICE_COUNT (ED_ROTATION_MANIPULATOR_RING_VERT_COUNT*6)
 
-struct r_i_draw_state_t ed_selected_face_fill_draw_state = {
+struct r_draw_state_t ed_selected_face_fill_draw_state = {
     .line_width = 1.0,
-    .texture = R_INVALID_TEXTURE_HANDLE,
-    .pipeline_state.input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-    .pipeline_state.rasterizer_state.polygon_mode = VK_POLYGON_MODE_FILL,
-    .pipeline_state.rasterizer_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-    .pipeline_state.rasterizer_state.cull_mode = VK_CULL_MODE_BACK_BIT,
-    .pipeline_state.depth_state.compare_op = VK_COMPARE_OP_LESS_OR_EQUAL,
-    .pipeline_state.depth_state.test_enable = VK_TRUE,
-    .pipeline_state.depth_state.write_enable = VK_TRUE,
-    .pipeline_state.color_blend_state.test_enable = VK_TRUE,
-    .pipeline_state.color_blend_state.blend_constants = (float []){1.0, 1.0, 1.0, 1.0},
-    .pipeline_state.color_blend_state.src_color_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA,
-    .pipeline_state.color_blend_state.dst_color_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-    .pipeline_state.color_blend_state.src_alpha_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA,
-    .pipeline_state.color_blend_state.dst_alpha_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-    .pipeline_state.color_blend_state.color_blend_op = VK_BLEND_OP_ADD,
-    .pipeline_state.color_blend_state.alpha_blend_op = VK_BLEND_OP_ADD,
-    .pipeline_state.color_blend_state.color_write_mask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                                         VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+    .pipeline_state = &(struct r_pipeline_state_t) 
+    {
+        .input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .rasterizer_state.polygon_mode = VK_POLYGON_MODE_FILL,
+        .rasterizer_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .rasterizer_state.cull_mode = VK_CULL_MODE_BACK_BIT,
+        .depth_state.compare_op = VK_COMPARE_OP_LESS_OR_EQUAL,
+        .depth_state.test_enable = VK_TRUE,
+        .depth_state.write_enable = VK_TRUE,
+        .color_blend_state.test_enable = VK_TRUE,
+        .color_blend_state.blend_constants = {1.0, 1.0, 1.0, 1.0},
+        .color_blend_state.src_color_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA,
+        .color_blend_state.dst_color_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .color_blend_state.src_alpha_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA,
+        .color_blend_state.dst_alpha_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .color_blend_state.color_blend_op = VK_BLEND_OP_ADD,
+        .color_blend_state.alpha_blend_op = VK_BLEND_OP_ADD,
+        .color_blend_state.color_write_mask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+    }
 };
 
-struct r_i_draw_state_t ed_selected_face_ouline_draw_state = {
+struct r_draw_state_t ed_selected_face_ouline_draw_state = {
     .line_width = 3.0,
-    .texture = R_INVALID_TEXTURE_HANDLE,
-    .pipeline_state.input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
-    .pipeline_state.rasterizer_state.polygon_mode = VK_POLYGON_MODE_LINE,
-    .pipeline_state.rasterizer_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-    .pipeline_state.rasterizer_state.cull_mode = VK_CULL_MODE_NONE,
-    .pipeline_state.depth_state.compare_op = VK_COMPARE_OP_LESS_OR_EQUAL,
-    .pipeline_state.depth_state.test_enable = VK_TRUE,
-    .pipeline_state.depth_state.write_enable = VK_TRUE,
-    .pipeline_state.color_blend_state.test_enable = VK_TRUE,
-    .pipeline_state.color_blend_state.blend_constants = (float []){1.0, 1.0, 1.0, 1.0},
-    .pipeline_state.color_blend_state.src_color_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA,
-    .pipeline_state.color_blend_state.dst_color_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-    .pipeline_state.color_blend_state.src_alpha_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA,
-    .pipeline_state.color_blend_state.dst_alpha_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-    .pipeline_state.color_blend_state.color_blend_op = VK_BLEND_OP_ADD,
-    .pipeline_state.color_blend_state.alpha_blend_op = VK_BLEND_OP_ADD,
-    .pipeline_state.color_blend_state.color_write_mask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                                         VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+    .pipeline_state = &(struct r_pipeline_state_t )
+    {
+        .input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
+        .rasterizer_state.polygon_mode = VK_POLYGON_MODE_LINE,
+        .rasterizer_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .rasterizer_state.cull_mode = VK_CULL_MODE_NONE,
+        .depth_state.compare_op = VK_COMPARE_OP_LESS_OR_EQUAL,
+        .depth_state.test_enable = VK_TRUE,
+        .depth_state.write_enable = VK_TRUE,
+        .color_blend_state.test_enable = VK_TRUE,
+        .color_blend_state.blend_constants = {1.0, 1.0, 1.0, 1.0},
+        .color_blend_state.src_color_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA,
+        .color_blend_state.dst_color_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .color_blend_state.src_alpha_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA,
+        .color_blend_state.dst_alpha_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .color_blend_state.color_blend_op = VK_BLEND_OP_ADD,
+        .color_blend_state.alpha_blend_op = VK_BLEND_OP_ADD,
+        .color_blend_state.color_write_mask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+    }
 };
 
-struct r_i_draw_state_t ed_selected_object_outline_draw_state = {
+struct r_draw_state_t ed_selected_object_outline_draw_state = {
     .line_width = 3.0,
-    .texture = R_INVALID_TEXTURE_HANDLE,
-    .pipeline_state.input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-    .pipeline_state.rasterizer_state.polygon_mode = VK_POLYGON_MODE_LINE,
-    .pipeline_state.rasterizer_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-    .pipeline_state.rasterizer_state.cull_mode = VK_CULL_MODE_FRONT_BIT,
-    .pipeline_state.depth_state.compare_op = VK_COMPARE_OP_LESS,
-    .pipeline_state.depth_state.test_enable = VK_TRUE,
-    .pipeline_state.depth_state.write_enable = VK_TRUE,
-    .pipeline_state.color_blend_state.test_enable = VK_FALSE,
+    .pipeline_state = &(struct r_pipeline_state_t )
+    {
+        .input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .rasterizer_state.polygon_mode = VK_POLYGON_MODE_LINE,
+        .rasterizer_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .rasterizer_state.cull_mode = VK_CULL_MODE_FRONT_BIT,
+        .depth_state.compare_op = VK_COMPARE_OP_LESS,
+        .depth_state.test_enable = VK_TRUE,
+        .depth_state.write_enable = VK_TRUE,
+        .color_blend_state.test_enable = VK_FALSE,
+    }
 };
 
-struct r_i_draw_state_t ed_center_grid_draw_state = {
+struct r_draw_state_t ed_center_grid_draw_state = {
     .line_width = 1.0,
-    .texture = R_INVALID_TEXTURE_HANDLE,
-    .pipeline_state.input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
-    .pipeline_state.depth_state.compare_op = VK_COMPARE_OP_LESS,
-    .pipeline_state.depth_state.test_enable = VK_TRUE,
-    .pipeline_state.depth_state.write_enable = VK_TRUE,
+    .pipeline_state = &(struct r_pipeline_state_t)
+    {
+        .input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
+        .depth_state.compare_op = VK_COMPARE_OP_LESS,
+        .depth_state.test_enable = VK_TRUE,
+        .depth_state.write_enable = VK_TRUE,
+    }
 };
 
-struct r_i_draw_state_t ed_creating_brush_draw_state = {
+struct r_draw_state_t ed_creating_brush_draw_state = {
     .line_width = 2.0,
-    .texture = R_INVALID_TEXTURE_HANDLE,
-    .pipeline_state.input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
-    .pipeline_state.depth_state.compare_op = VK_COMPARE_OP_LESS,
-    .pipeline_state.depth_state.test_enable = VK_TRUE,
-    .pipeline_state.depth_state.write_enable = VK_TRUE,
-    .pipeline_state.color_blend_state.test_enable = VK_TRUE,
-    .pipeline_state.color_blend_state.blend_constants = (float []){1.0, 1.0, 1.0, 1.0},
-    .pipeline_state.color_blend_state.src_color_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA,
-    .pipeline_state.color_blend_state.dst_color_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-    .pipeline_state.color_blend_state.src_alpha_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA,
-    .pipeline_state.color_blend_state.dst_alpha_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
-    .pipeline_state.color_blend_state.color_blend_op = VK_BLEND_OP_ADD,
-    .pipeline_state.color_blend_state.alpha_blend_op = VK_BLEND_OP_ADD,
-    .pipeline_state.color_blend_state.color_write_mask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                                                         VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+    .pipeline_state = &(struct r_pipeline_state_t)
+    {
+        .input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_LINE_STRIP,
+        .depth_state.compare_op = VK_COMPARE_OP_LESS,
+        .depth_state.test_enable = VK_TRUE,
+        .depth_state.write_enable = VK_TRUE,
+        .color_blend_state.test_enable = VK_TRUE,
+        .color_blend_state.blend_constants = {1.0, 1.0, 1.0, 1.0},
+        .color_blend_state.src_color_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA,
+        .color_blend_state.dst_color_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .color_blend_state.src_alpha_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA,
+        .color_blend_state.dst_alpha_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .color_blend_state.color_blend_op = VK_BLEND_OP_ADD,
+        .color_blend_state.alpha_blend_op = VK_BLEND_OP_ADD,
+        .color_blend_state.color_write_mask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+    }
 };
 
 struct ed_manipulator_t ed_manipulators[ED_TRANSFORM_TYPE_LAST] = {
@@ -220,6 +234,22 @@ void ed_w_ctx_Init()
     struct ed_world_context_data_t *data;
     struct ed_world_context_sub_context_t *sub_context;
     
+    ed_selected_face_fill_draw_state.pipeline_state->vertex_shader = r_flat_vertex_shader;
+    ed_selected_face_fill_draw_state.pipeline_state->fragment_shader = r_flat_fragment_shader;
+    
+    ed_selected_face_ouline_draw_state.pipeline_state->vertex_shader = r_flat_vertex_shader;
+    ed_selected_face_ouline_draw_state.pipeline_state->fragment_shader = r_flat_fragment_shader;
+    
+    ed_selected_object_outline_draw_state.pipeline_state->vertex_shader = r_flat_vertex_shader;
+    ed_selected_object_outline_draw_state.pipeline_state->fragment_shader = r_flat_fragment_shader;
+    
+    ed_center_grid_draw_state.pipeline_state->vertex_shader = r_flat_vertex_shader;
+    ed_center_grid_draw_state.pipeline_state->fragment_shader = r_flat_fragment_shader;
+    
+    ed_creating_brush_draw_state.pipeline_state->vertex_shader = r_flat_vertex_shader;
+    ed_creating_brush_draw_state.pipeline_state->fragment_shader = r_flat_fragment_shader;
+    
+    
     data = ed_contexts[ED_CONTEXT_WORLD].context_data;
     data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].selections = create_list(sizeof(struct ed_object_h), 512);
     data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects = create_stack_list(sizeof(struct ed_object_t), 512);
@@ -232,31 +262,12 @@ void ed_w_ctx_Init()
     
     bsh_Init();
     
-//    data->sub_contexts = mem_Calloc(ED_WORLD_CONTEXT_SUB_CONTEXT_LAST, sizeof(struct ed_world_context_sub_context_t));
-    
-//    sub_context = data->sub_contexts + ED_WORLD_CONTEXT_SUB_CONTEXT_WORLD;
-//    sub_context->input_function = ed_WorldContextWorldSubContextInput;
-//    sub_context->update_function = ed_WorldContextWorldSubContextUpdate;
-//    sub_context->selections = create_list(sizeof(struct ed_object_h), 512);
-//    sub_context->objects = create_list(sizeof(struct ed_object_h), 512);
-//    mat4_t_identity(&sub_context->manipulator_state.transform);
-//    sub_context->manipulator_state.picked_axis = 0;
-//    data->active_sub_context = sub_context;
-    
-//    sub_context = data->sub_contexts + ED_WORLD_CONTEXT_SUB_CONTEXT_BRUSH;
-//    sub_context->input_function = ed_WorldContextBrushSubContextInput;
-//    sub_context->update_function = ed_WorldContextBrushSubContextUpdate;
-//    sub_context->selections = create_list(sizeof(struct ed_object_h), 512);
-//    sub_context->objects = create_list(sizeof(struct ed_object_h), 512);
-//    mat4_t_identity(&sub_context->manipulator_state.transform);
-//    sub_context->manipulator_state.picked_axis = 0;
-    
-    
     /* 4 line loops (which for now needs 5 verts) */
     ed_creating_brush_verts = mem_Calloc(20, sizeof(struct r_i_vertex_t));
     
     /* center grid (well, I suppose that was already clear) */
-    ed_center_grid = mem_Calloc(((ED_GRID_X_WIDTH >> 1) + (ED_GRID_Z_WIDTH >> 1) + 2) * 5, sizeof(struct r_i_vertex_t));
+    ed_center_grid_vert_count = ((ED_GRID_X_WIDTH >> 1) + (ED_GRID_Z_WIDTH >> 1) + 2) * 5;
+    ed_center_grid = mem_Calloc(ed_center_grid_vert_count, sizeof(struct r_i_vertex_t));
     struct r_i_vertex_t *verts = ed_center_grid;
     for(int32_t quad_index = ED_GRID_X_WIDTH >> 1; quad_index >= 0; quad_index--)
     {
@@ -372,7 +383,7 @@ void ed_w_ctx_Init()
         verts[vert_index].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);
     }
     
-    chunk = r_AllocChunk(r_vertex_heap, sizeof(struct r_i_vertex_t) * ed_translation_manipulator_vert_count, sizeof(struct r_i_vertex_t));
+    chunk = r_AllocVertexChunk(sizeof(struct r_i_vertex_t), ed_translation_manipulator_vert_count, sizeof(struct r_i_vertex_t));
     r_FillBufferChunk(chunk, ed_manipulators[ED_TRANSFORM_TYPE_TRANSLATION].vertices, sizeof(struct r_i_vertex_t) * ed_translation_manipulator_vert_count, 0);
     ed_manipulators[ED_TRANSFORM_TYPE_TRANSLATION].chunk = chunk;
     
@@ -427,7 +438,7 @@ void ed_w_ctx_Init()
         verts[vert_index].color = vec4_t_c(0.0, 0.0, 1.0, 1.0);
     }
     
-    chunk = r_AllocChunk(r_vertex_heap, sizeof(struct r_i_vertex_t) * ed_rotation_manipulator_vert_count, sizeof(struct r_i_vertex_t));
+    chunk = r_AllocVertexChunk(sizeof(struct r_i_vertex_t), ed_rotation_manipulator_vert_count, sizeof(struct r_i_vertex_t));
     r_FillBufferChunk(chunk, ed_manipulators[ED_TRANSFORM_TYPE_ROTATION].vertices, sizeof(struct r_i_vertex_t) * ed_rotation_manipulator_vert_count, 0);
     ed_manipulators[ED_TRANSFORM_TYPE_ROTATION].chunk = chunk;
     
@@ -436,6 +447,14 @@ void ed_w_ctx_Init()
     destroy_list(&manipulator_data.tangents);
     destroy_list(&manipulator_data.tex_coords);
     destroy_list(&manipulator_data.batches);
+    
+    vec3_t bench_position = vec3_t_c(0.0, 0.0, 0.0);
+    mat3_t bench_orientation;
+    mat3_t_identity(&bench_orientation);
+    
+    struct ent_entity_h bench = ent_CreateEntity("bench", &bench_position, &bench_orientation, ENT_ENTITY_TYPE_PROP);
+    struct mdl_model_h bench_model = mdl_LoadModel("bench.obj", "bench");
+    ent_SetEntityModel(bench, bench_model);
 }
 
 void ed_w_ctx_Input(void *context_data, struct ed_editor_window_t *window)
@@ -454,207 +473,314 @@ void ed_w_ctx_Update(void *context_data, struct ed_editor_window_t *window)
 {
     struct r_i_vertex_t *grid_verts = ed_center_grid;
     struct r_begin_submission_info_t begin_info = {};
-    struct r_i_draw_state_t draw_state = {};
+    struct r_draw_state_t draw_state = {};
     struct ed_editor_viewport_t *viewport = (struct ed_editor_viewport_t *)window;
     struct ed_world_context_data_t *data = (struct ed_world_context_data_t *)context_data;
+    struct r_image_memory_barrier_t memory_barrier = {};
+    mat4_t view_projection_matrix;
     
     mat4_t_invvm(&viewport->inv_view_matrix, &viewport->view_matrix);
     mat4_t_persp(&viewport->projection_matrix, 0.68, (float)viewport->width / (float)viewport->height, 0.1, 500.0);
     
-    begin_info.inv_view_matrix = viewport->inv_view_matrix;
-    begin_info.projection_matrix = viewport->projection_matrix;
-    begin_info.framebuffer = viewport->framebuffer;
-    begin_info.viewport.minDepth = 0.0;
-    begin_info.viewport.maxDepth = 1.0;
-    begin_info.viewport.width = viewport->width;
-    begin_info.viewport.height = viewport->height;
-    begin_info.scissor.extent.width = viewport->width;
-    begin_info.scissor.extent.height = viewport->height;
-    begin_info.clear_framebuffer = 1;
+    mat4_t_mul(&view_projection_matrix, &viewport->inv_view_matrix, &viewport->projection_matrix);
     
-    draw_state.scissor.extent.width = viewport->width;
-    draw_state.scissor.extent.height = viewport->height;
-    draw_state.line_width = ed_center_grid_draw_state.line_width;
-    draw_state.texture = ed_center_grid_draw_state.texture;
-    draw_state.pipeline_state = ed_center_grid_draw_state.pipeline_state;
     
+    struct r_view_t view;
+    view.inv_view_matrix = viewport->inv_view_matrix;
+    view.projection_matrix = viewport->projection_matrix;
+    view.viewport.width = viewport->width;
+    view.viewport.height = viewport->height;
+    view.viewport.minDepth = 0.0;
+    view.viewport.maxDepth = 1.0;
+    view.viewport.x = 0.0;
+    view.viewport.y = 0.0;
+    view.scissor.offset.x = 0;
+    view.scissor.offset.y = 0;
+    view.scissor.extent.width = viewport->width;
+    view.scissor.extent.height = viewport->height;
+    view.zoom = 1.0;
+    view.z_near = 0.1;
+    view.z_far = 500.0;
+    
+    union r_command_buffer_h command_buffer = r_AllocateCommandBuffer();
+    r_BeginCommandBuffer(command_buffer, &view);
+    
+    struct r_framebuffer_t *framebuffer = r_GetFramebufferPointer(viewport->framebuffer);
+    struct r_framebuffer_d *framebuffer_description = r_GetFramebufferDescPointer(viewport->framebuffer);
+    struct r_texture_t **attachments = framebuffer->textures + framebuffer_description->attachment_count * framebuffer->current_buffer;
+    struct r_texture_t *color_attachment;
+    
+    for(uint32_t texture_index = 0; texture_index < framebuffer_description->attachment_count; texture_index++)
+    {
+        color_attachment = attachments[texture_index];
+        VkImageCreateInfo *image_description = color_attachment->image->description;
+        
+        if(!r_IsDepthStencilFormat(image_description->format))
+        {
+            break;
+        }
+    }
+    
+    memory_barrier.dst_access_mask = VK_ACCESS_MEMORY_READ_BIT;
+    memory_barrier.src_queue_family_index = VK_QUEUE_FAMILY_IGNORED;
+    memory_barrier.dst_queue_family_index = VK_QUEUE_FAMILY_IGNORED;
+    memory_barrier.old_layout = color_attachment->image->current_layout;
+    memory_barrier.new_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    memory_barrier.image = color_attachment->image;
+    memory_barrier.subresource_range.aspectMask = color_attachment->image->aspect_mask;
+    memory_barrier.subresource_range.baseArrayLayer = 0;
+    memory_barrier.subresource_range.baseMipLevel = 0;
+    memory_barrier.subresource_range.layerCount = 1;
+    memory_barrier.subresource_range.levelCount = 1;
+    
+    if(color_attachment->image->current_layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
+    {
+        r_vkCmdPipelineImageBarrier(command_buffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 1, &memory_barrier);
+    }
+    
+    
+    r_BeginRenderPass(command_buffer, &view.scissor, viewport->framebuffer);
+    r_ClearAttachments(command_buffer, 1, 1);
+    
+    draw_state.line_width = 1.0;
+    draw_state.point_size = 1.0;
+    draw_state.scissor = view.scissor;
+
+    draw_state.pipeline_state = &(struct r_pipeline_state_t)
+    {
+        .depth_state.write_enable = VK_TRUE,
+        .depth_state.test_enable = VK_TRUE,
+        .depth_state.compare_op = VK_COMPARE_OP_LESS,
+        .rasterizer_state.cull_mode = VK_CULL_MODE_BACK_BIT,
+        .rasterizer_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+        .rasterizer_state.polygon_mode = VK_POLYGON_MODE_FILL,
+        .input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        .vertex_shader = r_lit_vertex_shader,
+        .fragment_shader = r_lit_fragment_shader,
+    };
+
     
     struct stack_list_t *objects = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects;
     struct list_t *selections = &data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].selections;
     
-    r_BeginSubmission(&begin_info);
+//    struct r_draw_cmd_list_h draw_cmd_list = r_BeginDrawCmdList(&begin_info);
     for(uint32_t object_index = 0; object_index < objects->cursor; object_index++)
     {
         struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, (struct ed_object_h){object_index});
-        
+
         if(object)
         {
+            struct r_material_t *material = r_GetDefaultMaterialPointer();
+            mat4_t model_view_projection_matrix;
+            mat4_t_mul(&model_view_projection_matrix, &object->transform, &view_projection_matrix);
+            
+            draw_state.texture_state = &(struct r_texture_state_t)
+            {
+                .texture_count = 1,
+                .textures = (struct r_texture_state_binding_t [])
+                {
+                    [0] = {.binding_index = 0, .texture = material->diffuse_texture}
+                }
+            };
+
+            r_SetDrawState(command_buffer, &draw_state);
+            r_PushConstants(command_buffer, VK_SHADER_STAGE_VERTEX_BIT, sizeof(mat4_t), 0, &model_view_projection_matrix);
+        
             if(object->vertex_offset == 0xffffffff)
             {
-                r_Draw(object->start, object->count, r_GetDefaultMaterialPointer(), &object->transform);
+                r_Draw(command_buffer, object->start, object->count);
             }
             else
             {
-                r_DrawIndexed(object->start, object->count, object->vertex_offset, r_GetDefaultMaterialPointer(), &object->transform);
+                r_DrawIndexed(command_buffer, object->start, object->count, object->vertex_offset);
             }
         }
     }
-    r_EndSubmission();
-    begin_info.clear_framebuffer = 0;
+//    r_EndRenderPass(command_buffer);
+//    struct r_framebuffer_t *framebuffer = r_GetFramebufferPointer(viewport->framebuffer);
+//    struct r_framebuffer_description_t *framebuffer_description = r_GetFramebufferDescriptionPointer(viewport->framebuffer);
+//    struct r_texture_h *attachments = framebuffer->textures + framebuffer_description->attachment_count * framebuffer->current_buffer;
+//    struct r_texture_t *color_attachment = NULL;
+//    
+//    for(uint32_t texture_index = 0; texture_index < framebuffer_description->attachment_count; texture_index++)
+//    {
+//        if(!r_IsDepthStencilFormat(framebuffer_description->attachments[texture_index].format))
+//        {
+//            color_attachment = r_GetTexturePointer(attachments[texture_index]);
+//            break;
+//        }
+//    }
     
-    r_i_BeginSubmission(&begin_info);
-    r_i_SetDrawState(&draw_state);
-    for(int32_t quad_index = ED_GRID_X_WIDTH >> 1; quad_index >= 0; quad_index--)
+//    struct r_texture_t *color_attachment = r_GetTexturePointer(framebuffer->textures[0]);
+//    r_vkCmdSetImageLayout(command_buffer, color_attachment->image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    
+    draw_state.line_width = ed_center_grid_draw_state.line_width;
+    draw_state.pipeline_state = ed_center_grid_draw_state.pipeline_state;
+    draw_state.texture_state = &(struct r_texture_state_t)
     {
-        r_i_DrawImmediate(grid_verts, 5, NULL, 0, NULL);
-        grid_verts += 5;
-    }
-    for(int32_t quad_index = ED_GRID_Z_WIDTH >> 1; quad_index >= 0; quad_index--)
-    {
-        r_i_DrawImmediate(grid_verts, 5, NULL, 0, NULL);
-        grid_verts += 5;
-    }
+        .texture_count = 1,
+        .textures = (struct r_texture_state_binding_t [])
+        {
+            [0] = {.binding_index = 0, .texture = r_GetDefaultTexture()}
+        }
+    };
+
+    r_SetDrawState(command_buffer, &draw_state);
+    uint32_t start = r_FillTempVertices(grid_verts, sizeof(struct r_i_vertex_t), ed_center_grid_vert_count);
+    r_PushConstants(command_buffer, VK_SHADER_STAGE_VERTEX_BIT, sizeof(mat4_t), 0, &view_projection_matrix);
+    r_PushConstants(command_buffer, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(uint32_t), sizeof(mat4_t) + sizeof(float), &(uint32_t){0});
+    r_Draw(command_buffer, start, ed_center_grid_vert_count);
     
     objects = &data->target_data[data->current_selection_target].objects;
     selections = &data->target_data[data->current_selection_target].selections;
     
-    if(selections->cursor)
-    {    
-        if(data->current_selection_target == ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT)
-        {
-            draw_state.line_width = ed_selected_object_outline_draw_state.line_width;
-            draw_state.texture = ed_selected_object_outline_draw_state.texture;
-            draw_state.pipeline_state = ed_selected_object_outline_draw_state.pipeline_state;
-            r_i_SetDrawState(&draw_state);
-                        
-            for(uint32_t object_index = 0; object_index < selections->cursor; object_index++)
-            {
-                struct ed_object_h handle = *(struct ed_object_h *)get_list_element(selections, object_index);
-                struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, handle);
-                struct r_i_vertex_t vertice;
-                vec4_t color;
-                if(object_index < selections->cursor - 1)
-                {
-                    color = vec4_t_c(1.0, 0.3, 0.0, 1.0);
-                }
-                else
-                {
-                    color = vec4_t_c(1.0, 0.8, 0.0, 1.0); 
-                }
-                
-                if(object->vertex_count > ed_max_outline_verts)
-                {
-                    ed_max_outline_verts = object->vertex_count;
-                    ed_outline_verts = mem_Realloc(ed_outline_verts, sizeof(struct r_i_vertex_t) * ed_max_outline_verts);
-                }
-                
-                if(object->count > ed_max_outline_indices)
-                {
-                    ed_max_outline_indices = object->count;
-                    ed_outline_indices = mem_Realloc(ed_outline_indices, sizeof(uint32_t) * ed_max_outline_indices);
-                }
-                
-                switch(object->type)
-                {
-                    case ED_OBJECT_TYPE_BRUSH:
-                    {
-                        struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
-                        for(uint32_t vertice_index = 0; vertice_index < brush->draw_vertice_count; vertice_index++)
-                        {
-                            ed_outline_verts[vertice_index].position = brush->draw_vertices[vertice_index].position;
-                            ed_outline_verts[vertice_index].color = color;
-                        }
-                        
-                        for(uint32_t indice_index = 0; indice_index < brush->draw_indice_count; indice_index++)
-                        {
-                            ed_outline_indices[indice_index] = brush->draw_indices[indice_index];
-                        }
-                        
-                        r_i_DrawImmediate(ed_outline_verts, brush->draw_vertice_count, ed_outline_indices, brush->draw_indice_count, &object->transform);
-                    }
-                    break;
-                }
-            }
-        }
-        else
-        {                               
-            for(uint32_t object_index = 0; object_index < selections->cursor; object_index++)
-            {
-                struct ed_object_h handle = *(struct ed_object_h *)get_list_element(selections, object_index);
-                struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, handle);
-                
-                draw_state.line_width = ed_selected_face_fill_draw_state.line_width;
-                draw_state.texture = ed_selected_face_fill_draw_state.texture;
-                draw_state.pipeline_state = ed_selected_face_fill_draw_state.pipeline_state;    
-                r_i_SetDrawState(&draw_state);
-                
-                vec4_t color = vec4_t_c(0.0, 0.5, 1.0, 0.2);
-                
-                if(object->vertex_count > ed_max_outline_verts)
-                {
-                    ed_max_outline_verts = object->vertex_count;
-                    ed_outline_verts = mem_Realloc(ed_outline_verts, sizeof(struct r_i_vertex_t) * ed_max_outline_verts);
-                    mem_CheckGuards();
-                }
-                
-                if(object->count > ed_max_outline_indices)
-                {
-                    ed_max_outline_indices = object->count;
-                    ed_outline_indices = mem_Realloc(ed_outline_indices, sizeof(uint32_t) * ed_max_outline_indices);
-                }
-                
-                struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
-                struct ed_brush_face_t *polygon = ed_GetBrushFacePointer(object->object.brush, object->object.face_index);
-                for(uint32_t vertice_index = 0; vertice_index < polygon->indice_count; vertice_index++)
-                {
-                    ed_outline_verts[vertice_index].position = brush->draw_vertices[polygon->draw_vertices_start + vertice_index].position;
-                    ed_outline_verts[vertice_index].color = color;
-                }
-                
-                for(uint32_t indice_index = 0; indice_index < polygon->draw_indices_count; indice_index++)
-                {
-                    ed_outline_indices[indice_index] = brush->draw_indices[polygon->draw_indices_start + indice_index] - 
-                        polygon->draw_vertices_start;
-                }
-                
-                r_i_DrawImmediate(ed_outline_verts, polygon->indice_count, ed_outline_indices, polygon->draw_indices_count, &object->transform);
-                
-                color = vec4_t_c(0.0, 1.0, 0.2, 0.8);
-                draw_state.line_width = ed_selected_face_ouline_draw_state.line_width;
-                draw_state.texture = ed_selected_face_ouline_draw_state.texture;
-                draw_state.pipeline_state = ed_selected_face_ouline_draw_state.pipeline_state;
-                r_i_SetDrawState(&draw_state);
-                
-                for(uint32_t vertice_index = 0; vertice_index < polygon->indice_count; vertice_index++)
-                {
-                    ed_outline_verts[vertice_index].position = brush->draw_vertices[polygon->draw_vertices_start + vertice_index].position;
-                    ed_outline_verts[vertice_index].color = color;                    
-                    ed_outline_indices[vertice_index] = vertice_index;
-                }
-                
-                ed_outline_indices[polygon->indice_count] = 0;                
-                r_i_DrawImmediate(ed_outline_verts, polygon->indice_count, ed_outline_indices, polygon->indice_count + 1, &object->transform);
-            }
-        }
-        
-        
-        draw_state.pipeline_state.input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-        draw_state.pipeline_state.rasterizer_state.polygon_mode = VK_POLYGON_MODE_FILL;
-        draw_state.pipeline_state.rasterizer_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-        draw_state.pipeline_state.rasterizer_state.cull_mode = VK_CULL_MODE_NONE;
-        draw_state.pipeline_state.depth_state.test_enable = VK_FALSE;
-        r_i_SetDrawState(&draw_state);
-        
-        mat4_t draw_transform;
-        ed_w_ctx_ManipulatorDrawTransform(&draw_transform, &data->manipulator_state, viewport);
-        
-        struct ed_manipulator_t *manipulator = ed_manipulators + data->manipulator_state.transform_type;
-        for(uint32_t component_index = 0; component_index < manipulator->component_count; component_index++)
-        {
-            struct ed_manipulator_component_t *component = manipulator->components + component_index;
-            r_i_DrawImmediate(manipulator->vertices + component->start, component->count, NULL, 0, &draw_transform);
-        }
-    }
+//    if(selections->cursor)
+//    {    
+//        if(data->current_selection_target == ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT)
+//        {
+//            draw_state.line_width = ed_selected_object_outline_draw_state.line_width;
+//            draw_state.texture = ed_selected_object_outline_draw_state.texture;
+//            draw_state.pipeline_state = ed_selected_object_outline_draw_state.pipeline_state;
+//            r_i_SetDrawState(draw_cmd_list, &draw_state);
+//                        
+//            for(uint32_t object_index = 0; object_index < selections->cursor; object_index++)
+//            {
+//                struct ed_object_h handle = *(struct ed_object_h *)get_list_element(selections, object_index);
+//                struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, handle);
+//                struct r_i_vertex_t vertice;
+//                vec4_t color;
+//                if(object_index < selections->cursor - 1)
+//                {
+//                    color = vec4_t_c(1.0, 0.3, 0.0, 1.0);
+//                }
+//                else
+//                {
+//                    color = vec4_t_c(1.0, 0.8, 0.0, 1.0); 
+//                }
+//                
+//                if(object->vertex_count > ed_max_outline_verts)
+//                {
+//                    ed_max_outline_verts = object->vertex_count;
+//                    ed_outline_verts = mem_Realloc(ed_outline_verts, sizeof(struct r_i_vertex_t) * ed_max_outline_verts);
+//                }
+//                
+//                if(object->count > ed_max_outline_indices)
+//                {
+//                    ed_max_outline_indices = object->count;
+//                    ed_outline_indices = mem_Realloc(ed_outline_indices, sizeof(uint32_t) * ed_max_outline_indices);
+//                }
+//                
+//                switch(object->type)
+//                {
+//                    case ED_OBJECT_TYPE_BRUSH:
+//                    {
+//                        struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
+//                        for(uint32_t vertice_index = 0; vertice_index < brush->draw_vertice_count; vertice_index++)
+//                        {
+//                            ed_outline_verts[vertice_index].position = brush->draw_vertices[vertice_index].position;
+//                            ed_outline_verts[vertice_index].color = color;
+//                        }
+//                        
+//                        for(uint32_t indice_index = 0; indice_index < brush->face_draw_indice_count; indice_index++)
+//                        {
+//                            ed_outline_indices[indice_index] = brush->draw_indices[indice_index];
+//                        }
+//                        
+//                        r_i_DrawImmediate(draw_cmd_list, ed_outline_verts, brush->draw_vertice_count, ed_outline_indices, brush->face_draw_indice_count, &object->transform);
+//                    }
+//                    break;
+//                }
+//            }
+//        }
+//        else
+//        {                               
+//            for(uint32_t object_index = 0; object_index < selections->cursor; object_index++)
+//            {
+//                struct ed_object_h handle = *(struct ed_object_h *)get_list_element(selections, object_index);
+//                struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, handle);
+//                
+//                switch(object->type)
+//                {
+//                    case ED_OBJECT_TYPE_FACE:
+//                    
+//                    break;
+//                    
+//                    case ED_OBJECT_TYPE_EDGE:
+//                        
+//                    break;
+//                }
+//                
+//                draw_state.line_width = ed_selected_face_fill_draw_state.line_width;
+//                draw_state.texture = ed_selected_face_fill_draw_state.texture;
+//                draw_state.pipeline_state = ed_selected_face_fill_draw_state.pipeline_state;    
+//                r_i_SetDrawState(draw_cmd_list, &draw_state);
+//                
+//                vec4_t color = vec4_t_c(0.0, 0.5, 1.0, 0.2);
+//                
+//                if(object->vertex_count > ed_max_outline_verts)
+//                {
+//                    ed_max_outline_verts = object->vertex_count;
+//                    ed_outline_verts = mem_Realloc(ed_outline_verts, sizeof(struct r_i_vertex_t) * ed_max_outline_verts);
+//                }
+//                
+//                if(object->count > ed_max_outline_indices)
+//                {
+//                    ed_max_outline_indices = object->count;
+//                    ed_outline_indices = mem_Realloc(ed_outline_indices, sizeof(uint32_t) * ed_max_outline_indices);
+//                }
+//                
+//                struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
+//                struct ed_brush_face_t *polygon = ed_GetBrushFacePointer(object->object.brush, object->object.face_index);
+//                for(uint32_t vertice_index = 0; vertice_index < polygon->indice_count; vertice_index++)
+//                {
+//                    ed_outline_verts[vertice_index].position = brush->draw_vertices[polygon->draw_vertices_start + vertice_index].position;
+//                    ed_outline_verts[vertice_index].color = color;
+//                }
+//                
+//                for(uint32_t indice_index = 0; indice_index < polygon->draw_indices_count; indice_index++)
+//                {
+//                    ed_outline_indices[indice_index] = brush->draw_indices[polygon->draw_indices_start + indice_index] - 
+//                        polygon->draw_vertices_start;
+//                }
+//                
+//                r_i_DrawImmediate(draw_cmd_list, ed_outline_verts, polygon->indice_count, ed_outline_indices, polygon->draw_indices_count, &object->transform);
+//                
+//                color = vec4_t_c(0.0, 1.0, 0.2, 0.8);
+//                draw_state.line_width = ed_selected_face_ouline_draw_state.line_width;
+//                draw_state.texture = ed_selected_face_ouline_draw_state.texture;
+//                draw_state.pipeline_state = ed_selected_face_ouline_draw_state.pipeline_state;
+//                r_i_SetDrawState(draw_cmd_list, &draw_state);
+//                
+//                for(uint32_t vertice_index = 0; vertice_index < polygon->indice_count; vertice_index++)
+//                {
+//                    ed_outline_verts[vertice_index].position = brush->draw_vertices[polygon->draw_vertices_start + vertice_index].position;
+//                    ed_outline_verts[vertice_index].color = color;                    
+//                    ed_outline_indices[vertice_index] = vertice_index;
+//                }
+//                
+//                ed_outline_indices[polygon->indice_count] = 0;                
+//                r_i_DrawImmediate(draw_cmd_list, ed_outline_verts, polygon->indice_count, ed_outline_indices, polygon->indice_count + 1, &object->transform);
+//            }
+//        }
+//        
+//        
+//        draw_state.pipeline_state.input_assembly_state.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+//        draw_state.pipeline_state.rasterizer_state.polygon_mode = VK_POLYGON_MODE_FILL;
+//        draw_state.pipeline_state.rasterizer_state.front_face = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+//        draw_state.pipeline_state.rasterizer_state.cull_mode = VK_CULL_MODE_NONE;
+//        draw_state.pipeline_state.depth_state.test_enable = VK_FALSE;
+//        r_i_SetDrawState(draw_cmd_list, &draw_state);
+//        
+//        mat4_t draw_transform;
+//        ed_w_ctx_ManipulatorDrawTransform(&draw_transform, &data->manipulator_state, viewport);
+//        
+//        struct ed_manipulator_t *manipulator = ed_manipulators + data->manipulator_state.transform_type;
+//        for(uint32_t component_index = 0; component_index < manipulator->component_count; component_index++)
+//        {
+//            struct ed_manipulator_component_t *component = manipulator->components + component_index;
+//            r_i_DrawImmediate(draw_cmd_list, manipulator->vertices + component->start, component->count, NULL, 0, &draw_transform);
+//        }
+//    }
     
     
     if(data->context_state == ED_WORLD_CONTEXT_STATE_CREATING_BRUSH)
@@ -678,15 +804,37 @@ void ed_w_ctx_Update(void *context_data, struct ed_editor_window_t *window)
         vert_index++;
         ed_creating_brush_verts[vert_index] = ed_creating_brush_verts[0];
         
+        uint32_t start = r_FillTempVertices(ed_creating_brush_verts, sizeof(struct r_i_vertex_t), vert_index);
         draw_state.line_width = ed_creating_brush_draw_state.line_width;
         draw_state.pipeline_state = ed_creating_brush_draw_state.pipeline_state;
-        draw_state.texture = ed_creating_brush_draw_state.texture;
+        draw_state.texture_state = &(struct r_texture_state_t)
+        {
+            .texture_count = 1,
+            .textures = (struct r_texture_state_binding_t [])
+            {
+                [0] = {.binding_index = 0, .texture = r_GetDefaultTexture()}
+            }
+        };
         
-        r_i_SetDrawState(&draw_state);
-        r_i_DrawImmediate(ed_creating_brush_verts, 5, NULL, 0, NULL);
+//        draw_state.texture = ed_creating_brush_draw_state.texture;
+        
+        r_SetDrawState(command_buffer, &draw_state);
+        r_Draw(command_buffer, start, vert_index);
+//        r_i_DrawImmediate(draw_cmd_list, ed_creating_brush_verts, 5, NULL, 0, NULL);
     }
+
+    r_EndRenderPass(command_buffer);
     
-    r_i_EndSubmission();
+    memory_barrier.old_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    memory_barrier.new_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    memory_barrier.src_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    memory_barrier.dst_access_mask = VK_ACCESS_SHADER_READ_BIT;
+    r_vkCmdPipelineImageBarrier(command_buffer, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 1, &memory_barrier);
+    
+    r_EndCommandBuffer(command_buffer);
+    struct r_fence_h fence = r_AllocFence();
+    r_SubmitCommandBuffers(1, &command_buffer, fence);
+    r_vkWaitForFences(1, &fence, VK_TRUE, 0xffffffffffffffff);
 }
 
 uint32_t ed_w_ctx_Layout(void *context_data, struct ed_editor_window_t *window)
@@ -772,9 +920,7 @@ uint32_t ed_w_ctx_Layout(void *context_data, struct ed_editor_window_t *window)
         
         igSeparator();
         
-        struct r_framebuffer_t *framebuffer = r_GetFramebufferPointer(viewport->framebuffer);
-        struct r_texture_t *texture = r_GetTexturePointer(framebuffer->textures[0]);
-        ImTextureID texture_id = (void *)framebuffer->textures[0].index;
+        
         if(igBeginChildStr("viewport", (ImVec2){0.0, 0.0}, 0, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_AlwaysAutoResize))
         {
             ImVec2 content_min;
@@ -787,6 +933,23 @@ uint32_t ed_w_ctx_Layout(void *context_data, struct ed_editor_window_t *window)
                 viewport->height = (uint32_t)content_max.y;
                 r_ResizeFramebuffer(viewport->framebuffer, viewport->width, viewport->height);
             }
+            
+            struct r_framebuffer_t *framebuffer = r_GetFramebufferPointer(viewport->framebuffer);
+            struct r_framebuffer_d *framebuffer_description = framebuffer->description;
+            struct r_texture_t **textures = framebuffer->textures + framebuffer_description->attachment_count * framebuffer->current_buffer;
+            struct r_texture_t *texture;
+            
+            for(uint32_t texture_index = 0; texture_index < framebuffer_description->attachment_count; texture_index++)
+            {
+                texture = textures[texture_index];
+                if(!r_IsDepthStencilFormat(texture->image->description->format))
+                {
+                    break;
+                }
+            }
+            
+            
+            ImTextureID texture_id = (void *)texture;
             
             igImage(texture_id, (ImVec2){(float) viewport->width, (float) viewport->height}, 
                 (ImVec2){0.0, 0.0}, (ImVec2){1.0, 1.0}, (ImVec4){1.0, 1.0, 1.0, 1.0}, (ImVec4){0.0, 0.0, 0.0, 0.0});
@@ -889,8 +1052,13 @@ struct ed_object_h ed_w_ctx_CreateBrushObject(struct stack_list_t *objects, vec3
     brush = ed_GetBrushPointer(brush_handle);
     mat4_t_comp(&transform, &brush->orientation, &brush->position);
     
-    return ed_w_ctx_CreateObject(objects, &transform, ED_OBJECT_TYPE_BRUSH, brush->start, brush->count, brush->draw_vertice_count, brush->vertex_offset, 
-                                    VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, (union ed_object_ref_t){.brush = brush_handle});
+    uint32_t start = brush->draw_indice_start;
+    uint32_t count = brush->face_draw_indice_count;
+    uint32_t vert_count = brush->draw_vertice_count;
+    uint32_t vert_offset = brush->vertex_offset;
+    union ed_object_ref_t ref = {.brush = brush_handle};
+    
+    return ed_w_ctx_CreateObject(objects, &transform, ED_OBJECT_TYPE_BRUSH, start, count, vert_count, vert_offset, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, ref);
 }
 
 struct ed_object_h ed_w_ctx_CreateBrushFaceObject(struct stack_list_t *objects, mat4_t *transform, struct bsh_brush_h handle, uint32_t face_index)
@@ -901,7 +1069,7 @@ struct ed_object_h ed_w_ctx_CreateBrushFaceObject(struct stack_list_t *objects, 
     
     struct ed_object_h face_handle = ed_w_ctx_CreateObject(objects, transform, ED_OBJECT_TYPE_FACE, 0, 0, 0, 0, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, ref);
     struct ed_object_t *face_object = ed_w_ctx_GetObjectPointer(objects, face_handle);
-    face_object->start = face->draw_indices_start + brush->start;
+    face_object->start = face->draw_indices_start + brush->draw_indice_start;
     face_object->count = face->draw_indices_count;
     face_object->vertex_count = face->indice_count;
     face_object->vertex_offset = brush->vertex_offset;
@@ -934,7 +1102,7 @@ struct ed_object_h ed_w_ctx_CreateBrushObjectFromBrush(struct stack_list_t *obje
     brush = ed_GetBrushPointer(handle);
     mat4_t_comp(&transform, &brush->orientation, &brush->position);
     
-    return ed_w_ctx_CreateObject(objects, &transform, ED_OBJECT_TYPE_BRUSH, brush->start, brush->count, 
+    return ed_w_ctx_CreateObject(objects, &transform, ED_OBJECT_TYPE_BRUSH, brush->draw_indice_start, brush->face_draw_indice_count, 
                                  brush->draw_vertice_count, brush->vertex_offset, VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, (union ed_object_ref_t){.brush = handle});
 }
 
@@ -1094,7 +1262,7 @@ void ed_w_ctx_RightClickState(struct ed_world_context_data_t *data, struct ed_ed
             if(object && object->type == ED_OBJECT_TYPE_BRUSH)
             {
                 struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
-                for(uint32_t face_index = 0; face_index < brush->polygon_count; face_index++)
+                for(uint32_t face_index = 0; face_index < brush->face_count; face_index++)
                 {
                     struct ed_object_h face_handle = ed_w_ctx_CreateBrushFaceObject(objects, &object->transform, object->object.brush, face_index);
                     add_list_element(&ed_object_handles, &face_handle);
@@ -1452,7 +1620,6 @@ void ed_w_ctx_ExtrudingBrushFacesState(struct ed_world_context_data_t *data, str
         struct bsh_brush_h brush_handle = object->object.brush;
         struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
         ed_ExtrudeBrushFace(object->object.brush, object->object.face_index);
-        bsh_UpdateDrawTriangles(object->object.brush);
         
         for(uint32_t object_index = 0; object_index < data->target_data[ED_WORLD_CONTEXT_SELECTION_TARGET_OBJECT].objects.cursor; object_index++)
         {
@@ -1461,8 +1628,8 @@ void ed_w_ctx_ExtrudingBrushFacesState(struct ed_world_context_data_t *data, str
             {
                 if(object->object.brush.index == brush_handle.index)
                 {
-                    object->start = brush->start;
-                    object->count = brush->count;
+                    object->start = brush->draw_indice_start;
+                    object->count = brush->face_draw_indice_count;
                     object->vertex_count = brush->draw_vertice_count;
                     object->vertex_offset = brush->vertex_offset;
                     break;
@@ -1477,7 +1644,7 @@ void ed_w_ctx_ExtrudingBrushFacesState(struct ed_world_context_data_t *data, str
         struct ed_object_t *object = ed_w_ctx_GetObjectPointer(objects, handle);
         struct ed_brush_face_t *face = ed_GetBrushFacePointer(object->object.brush, object->object.face_index);
         struct ed_brush_t *brush = ed_GetBrushPointer(object->object.brush);
-        mat3_t_vec3_t_mul(&data->manipulation_state.axis_constraint, &face->face_normal, &brush->orientation);
+        mat3_t_vec3_t_mul(&data->manipulation_state.axis_constraint, &face->normal, &brush->orientation);
     }
     
     ed_w_ctx_SetState(data, ED_WORLD_CONTEXT_STATE_MANIPULATING);
@@ -1778,7 +1945,7 @@ void ed_w_ctx_TransformBrushElements(mat4_t *transform, struct stack_list_t *obj
                     vec3_t_add(vert, vert, &rotated_translation);
                 }
                 ed_transform_brush_face_indices.cursor = 0;
-                bsh_UpdateDrawTriangles(current_brush_handle);
+                bsh_UpdateBrushDrawData(current_brush_handle);
             }
         }
         break;

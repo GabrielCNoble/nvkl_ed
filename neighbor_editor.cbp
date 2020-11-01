@@ -61,9 +61,10 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="neighbor/in.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_alloc.h" />
 		<Unit filename="neighbor/lib/dstuff/ds_dbvh.h" />
 		<Unit filename="neighbor/lib/dstuff/ds_file.h" />
-		<Unit filename="neighbor/lib/dstuff/ds_geometry.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_geo.h" />
 		<Unit filename="neighbor/lib/dstuff/ds_list.h" />
 		<Unit filename="neighbor/lib/dstuff/ds_matrix.h" />
 		<Unit filename="neighbor/lib/dstuff/ds_mem.h" />
@@ -71,6 +72,7 @@
 		<Unit filename="neighbor/lib/dstuff/ds_path.h" />
 		<Unit filename="neighbor/lib/dstuff/ds_ringbuffer.h" />
 		<Unit filename="neighbor/lib/dstuff/ds_sprpk.h" />
+		<Unit filename="neighbor/lib/dstuff/ds_stack.h" />
 		<Unit filename="neighbor/lib/dstuff/ds_stack_list.h" />
 		<Unit filename="neighbor/lib/dstuff/ds_utils.h" />
 		<Unit filename="neighbor/lib/dstuff/ds_vector.h" />
@@ -87,6 +89,10 @@
 		<Unit filename="neighbor/lib/imgui/imstb_rectpack.h" />
 		<Unit filename="neighbor/lib/imgui/imstb_textedit.h" />
 		<Unit filename="neighbor/lib/imgui/imstb_truetype.h" />
+		<Unit filename="neighbor/lib/tinycthread/tinycthread.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/lib/tinycthread/tinycthread.h" />
 		<Unit filename="neighbor/mdl.c">
 			<Option compilerVar="CC" />
 		</Unit>
@@ -95,7 +101,11 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="neighbor/phy.h" />
-		<Unit filename="neighbor/r_common.h" />
+		<Unit filename="neighbor/r.c">
+			<Option compilerVar="CC" />
+		</Unit>
+		<Unit filename="neighbor/r.h" />
+		<Unit filename="neighbor/r_defs.h" />
 		<Unit filename="neighbor/r_draw.c">
 			<Option compilerVar="CC" />
 		</Unit>

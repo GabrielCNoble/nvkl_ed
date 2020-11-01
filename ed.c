@@ -12,6 +12,52 @@
 #include "neighbor/in.h"
 #include "neighbor/g.h"
 
+
+/*
+
+    TODO: 
+    
+        -   implement scaling transform
+        
+        -   figure out what should happen when a brush face
+            gets deleted (or collapsed).
+            
+        -   figure out how to not allow brushes to be turned
+            inside out
+        
+        -   figure out undo
+    
+        -   implement brush face and brush face plane rotation.
+            Should reestructure brushes to be the intersection
+            of several planes? Or should it stay as a list of
+            faces, and plane rotation only extends adjacent 
+            faces? 
+        
+        -   figure out how scaling affects brush faces. Should 
+            the scaling act only in global space? Brush local 
+            space? Should each face have its own "coordinate 
+            system" (answer: probably yes)
+        
+        -   figure out a way of drawing selected brush elements
+            that doesn't involve doing a billion draw state
+            changes. Maybe sort them or something.
+            
+        -   material context
+        
+        -   brush face context (to allow setting face parameters,
+            like material, uv multipliers, uv rotation)
+        
+        -   figure out how to have brushes not added to the bsp
+            cast shadows. The best approach so far is to create
+            a mdl_model_t and an ent_entity_t for each brush,
+            and draw them that way.
+            
+        -   figure out brush sets
+        
+        -   csg
+
+*/
+
 float ed_pitch;
 float ed_yaw;
 
@@ -46,9 +92,9 @@ struct
 
 struct r_framebuffer_h ed_framebuffer;
 
-extern struct r_heap_h r_vertex_heap;
-extern struct r_heap_h r_index_heap;
-extern VkQueue r_draw_queue;
+//extern struct r_heap_h r_vertex_heap;
+//extern struct r_heap_h r_index_heap;
+extern struct r_queue_h r_draw_queue;
 extern VkFence r_draw_fence;
 extern SDL_Window *r_window;
 
@@ -74,6 +120,8 @@ extern SDL_Window *r_window;
 
 struct r_i_vertex_t *ed_rotation_manipulator;
 struct r_i_vertex_t *ed_scale_manipulator;
+struct r_shader_handle_t ed_pick_vertex_shader;
+struct r_shader_handle_t ed_pick_fragment_shader;
 
 void (*ed_TranslateObjectFunction[ED_OBJECT_TYPE_LAST])(struct ed_object_t *object, vec3_t *translation) = {NULL};
 
@@ -194,7 +242,8 @@ void ed_Init()
     FILE *shader_file = fopen("shaders/pick.vert.spv", "rb");
     read_file(shader_file, &shader_description.code, &shader_description.code_size);
     fclose(shader_file);
-    struct r_shader_t *vertex_shader = r_GetShaderPointer(r_CreateShader(&shader_description));
+    ed_pick_vertex_shader = r_CreateShader(&shader_description);
+//    struct r_shader_t *vertex_shader = r_GetShaderPointer(r_CreateShader(&shader_description));
     
     
     shader_description = (struct r_shader_description_t){
@@ -203,7 +252,8 @@ void ed_Init()
     shader_file = fopen("shaders/pick.frag.spv", "rb");
     read_file(shader_file, &shader_description.code, &shader_description.code_size);
     fclose(shader_file);
-    struct r_shader_t *fragment_shader = r_GetShaderPointer(r_CreateShader(&shader_description));
+    ed_pick_fragment_shader = r_CreateShader(&shader_description);
+//    struct r_shader_t *fragment_shader = r_GetShaderPointer(r_CreateShader(&shader_description));
     
     struct r_render_pass_description_t render_pass_description = {
         .attachment_count = 2,
@@ -234,7 +284,7 @@ void ed_Init()
                 .pipeline_descriptions = (struct r_pipeline_description_t []){
                     [0] = {
                         .shader_count = 2,
-                        .shaders = (struct r_shader_t *[]){vertex_shader, fragment_shader},
+                        .shaders = (struct r_shader_handle_t []){ed_pick_vertex_shader, ed_pick_fragment_shader},
                         .vertex_input_state = &(VkPipelineVertexInputStateCreateInfo){
                             .vertexBindingDescriptionCount = 1,
                             .pVertexBindingDescriptions = &(VkVertexInputBindingDescription){
@@ -266,7 +316,7 @@ void ed_Init()
     SDL_GetDisplayBounds(0, &display_size);
     ed_picking_render_pass = r_CreateRenderPass(&render_pass_description);
     
-    struct r_framebuffer_description_t framebuffer_description = {
+    struct r_framebuffer_d framebuffer_description = {
         .width = display_size.w,
         .height = display_size.h,
         .frame_count = 1,
@@ -275,7 +325,7 @@ void ed_Init()
     
     ed_picking_framebuffer = r_CreateFramebuffer(&framebuffer_description);
     struct r_framebuffer_t *framebuffer = r_GetFramebufferPointer(ed_picking_framebuffer);
-    struct r_texture_t *texture = r_GetTexturePointer(framebuffer->textures[0]);
+    struct r_texture_t *texture = framebuffer->textures[0];
     ed_picking_memory = r_MapImageMemory(texture->image);
 }
 
@@ -292,23 +342,6 @@ void ed_Main(float delta_time)
     {
         g_Quit();
     }
-    
-//    if(in_GetKeyState(SDL_SCANCODE_SPACE) & IN_INPUT_STATE_JUST_PRESSED)
-//    {
-//        r_Fullscreen(1);
-//    }
-    
-//    if((in_GetKeyState(SDL_SCANCODE_LSHIFT) & IN_INPUT_STATE_PRESSED) &&
-//       (in_GetKeyState(SDL_SCANCODE_S) & IN_INPUT_STATE_JUST_PRESSED))
-//    {
-//        ed_SaveLevel("FUCK");
-//    }
-//    
-//    if((in_GetKeyState(SDL_SCANCODE_LSHIFT) & IN_INPUT_STATE_PRESSED) &&
-//       (in_GetKeyState(SDL_SCANCODE_L) & IN_INPUT_STATE_JUST_PRESSED))
-//    {
-//        ed_LoadLevel("FUCK");
-//    }
     
     ed_DrawLayout();
     ed_UpdateWindows();
@@ -699,9 +732,9 @@ union r_command_buffer_h ed_BeginPicking(struct ed_editor_viewport_t *viewport)
     
     command_buffer = r_AllocateCommandBuffer();
     render_pass = r_GetRenderPassPointer(ed_picking_render_pass);
-    pipeline = r_GetPipelinePointer(render_pass->pipelines[0]);
-    vertex_heap = r_GetHeapPointer(r_vertex_heap);
-    index_heap = r_GetHeapPointer(r_index_heap);
+//    pipeline = r_GetPipelinePointer(render_pass->pipelines[0]);
+    vertex_heap = r_GetHeapPointer(R_DEFAULT_VERTEX_HEAP);
+    index_heap = r_GetHeapPointer(R_DEFAULT_INDEX_HEAP);
     framebuffer = r_GetFramebufferPointer(ed_picking_framebuffer);
     
     begin_info.render_pass = ed_picking_render_pass;
@@ -720,7 +753,7 @@ union r_command_buffer_h ed_BeginPicking(struct ed_editor_viewport_t *viewport)
     r_vkBeginCommandBuffer(command_buffer);
     r_vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_heap->buffer, &(VkDeviceSize){0});
     r_vkCmdBindIndexBuffer(command_buffer, index_heap->buffer, 0, VK_INDEX_TYPE_UINT32);
-    r_vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
+    r_vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, render_pass->pipelines[0]);
     r_vkCmdSetViewport(command_buffer, 0, 1, &vk_viewport);
     r_vkCmdSetScissor(command_buffer, 0, 1, &scissor);
     r_vkCmdBeginRenderPass(command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
@@ -740,9 +773,11 @@ uint32_t ed_EndPicking(union r_command_buffer_h command_buffer, struct ed_editor
     submit_info.command_buffers = &command_buffer;
     submit_info.command_buffer_count = 1;
     
-    r_vkResetFences(1, &r_draw_fence);
-    r_vkQueueSubmit(r_draw_queue, 1, &submit_info, r_draw_fence);
-    r_vkWaitForFences(1, &r_draw_fence, VK_TRUE, 0xffffffffffffffff);
+    struct r_fence_h fence = r_AllocFence();
+    
+//    r_vkResetFences(1, &r_draw_fence);
+    r_vkQueueSubmit(r_draw_queue, 1, &submit_info, fence);
+    r_vkWaitForFences(1, &fence, VK_TRUE, 0xffffffffffffffff);
     
     VkSubresourceLayout layout;
     VkImageSubresource subresource;
@@ -752,8 +787,8 @@ uint32_t ed_EndPicking(union r_command_buffer_h command_buffer, struct ed_editor
     subresource.arrayLayer = 0;
     
     struct r_framebuffer_t *framebuffer = r_GetFramebufferPointer(ed_picking_framebuffer);
-    struct r_texture_t *texture = r_GetTexturePointer(framebuffer->textures[0]);
-    struct r_image_t *image = r_GetImagePointer(texture->image);
+    struct r_texture_t *texture = framebuffer->textures[0];
+    struct r_image_t *image = texture->image;
     vkGetImageSubresourceLayout(r_GetDevice(), image->image, &subresource, &layout);
     
     uint32_t row = layout.rowPitch * viewport->mouse_y;
